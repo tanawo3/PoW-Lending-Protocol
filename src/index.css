@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+:root {
+  --font-display: 'Syne', sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  
+  --bg-primary: #d1d1c7;
+  --bg-secondary: #e8e8e3;
+  --text-main: #080807;
+  --text-muted: #524d47; /* black-200 */
+  --card-dark: #181715;
+  --border-light: #bfbfb1;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100dvh;
+}
+
+/* Typography specific to Monolog */
+.font-display {
+  font-family: var(--font-display);
+}
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Hide number input spin buttons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Monolog Brutalist Components */
+.card-monolog-dark {
+  background-color: var(--card-dark);
+  color: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.card-monolog-light {
+  background-color: var(--bg-secondary);
+  color: var(--text-main);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.btn-monolog {
+  background-color: var(--text-main);
+  color: var(--bg-secondary);
+  border-radius: 9999px;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-monolog:hover {
+  background-color: var(--card-dark);
+  transform: scale(0.98);
+}
+
+.btn-monolog-outline {
+  background-color: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--text-main);
+  border-radius: 9999px;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-monolog-outline:hover {
+  background-color: var(--text-main);
+  color: var(--bg-secondary);
+}
+
+/* Sharp grid borders */
+.brutalist-border {
+  border: 1px solid var(--text-main);
+}

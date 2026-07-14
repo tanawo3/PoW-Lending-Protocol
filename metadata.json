@@ -1,0 +1,6 @@
+{
+  "name": "PoW Lending Protocol",
+  "description": "DeFi Lending Protocol application that verifies qualitative proof-of-work from GitHub commits or written reports using GenLayer Intelligent Contracts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
