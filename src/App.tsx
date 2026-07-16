@@ -4,6 +4,7 @@ import { useGenLayer } from './hooks/useGenLayer';
 import { useSoundEffect } from './hooks/useSoundEffect';
 import { InitializationView } from './components/InitializationView';
 import { LoanDashboard } from './components/LoanDashboard';
+import { PoolDashboard } from './components/PoolDashboard';
 import { SplitText } from './components/SplitText';
 import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
@@ -239,6 +240,8 @@ export default function App() {
                 {/* Dashboard Grid */}
                 <div className="max-w-[1400px] mx-auto px-6 py-24">
                   <LoanDashboard genLayer={genLayer} />
+                  
+                  <PoolDashboard genLayer={genLayer} />
                 </div>
 
                 {/* Zomoroda Stacking Cards */}

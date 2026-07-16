@@ -66,6 +66,7 @@ class PoWSubmission:
     vouch_score: u256
     collateral: u256
     debt: u256
+    pool_id: str
     created_at: u256
     last_updated: u256
 
@@ -94,6 +95,9 @@ class PoWLendingProtocol(gl.Contract):
     """
     proposals: TreeMap[str, PoWSubmission]
     proposal_ids: DynArray[str]
+    pools: TreeMap[str, str]
+    pool_ids: DynArray[str]
+    pool_counter: u256
     balances: TreeMap[str, u256]
     state: ProtocolState
     owner: str
@@ -111,6 +115,125 @@ class PoWLendingProtocol(gl.Contract):
         self.state.total_capital_requested = u256(0)
         self.state.total_capital_approved = u256(0)
         self.state.global_risk_index_bps = u256(0)
+        self.pool_counter = u256(0)
+
+    # -------------------------------------------------------------------------
+    # UTILITY METHODS
+    # -------------------------------------------------------------------------
+    def _loads(self, raw: str, fallback):
+        if not raw:
+            return fallback
+        try:
+            return json.loads(raw)
+        except:
+            return fallback
+
+    def _get_pool(self, pool_id: str) -> dict:
+        return self._loads(self.pools.get(pool_id), {})
+
+    def _save_pool(self, pool_id: str, data: dict) -> None:
+        self.pools[pool_id] = json.dumps(data)
+
+    def _send_gen(self, recipient: str, amount: int) -> None:
+        if amount == 0:
+            return
+        _NativeRecipient(Address(recipient)).emit_transfer(value=u256(amount))
+
+    # -------------------------------------------------------------------------
+    # LIQUIDITY POOLS (DeFi Yield Farming)
+    # -------------------------------------------------------------------------
+    @gl.public.write
+    def create_pool(
+        self,
+        name: str,
+        target_return_bps: int,
+        min_credit_score: int,
+        max_loan_amount_wei: int,
+        risk_tier: str
+    ) -> str:
+        if str(gl.message.sender_address) != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+            
+        if risk_tier not in ["LOW", "MEDIUM", "HIGH"]:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid risk tier")
+
+        self.pool_counter = u256(int(self.pool_counter) + 1)
+        pool_id = "pool_" + str(int(self.pool_counter))
+
+        pool = {
+            "pool_id": pool_id,
+            "name": name,
+            "target_return_bps": int(target_return_bps),
+            "min_credit_score": int(min_credit_score),
+            "max_loan_amount_wei": int(max_loan_amount_wei),
+            "risk_tier": risk_tier,
+            "available_liquidity_wei": 0,
+            "total_deposited_wei": 0,
+            "depositors": {},
+            "status": "ACTIVE"
+        }
+        self._save_pool(pool_id, pool)
+        self.pool_ids.append(pool_id)
+        return pool_id
+
+    @gl.public.write.payable
+    def deposit_liquidity(self, pool_id: str) -> None:
+        sender = str(gl.message.sender_address)
+        amount = int(gl.message.value)
+        if amount <= 0:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Deposit amount must be positive")
+
+        pool = self._get_pool(pool_id)
+        if pool == {}:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Pool not found")
+        if pool.get("status") != "ACTIVE":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Pool not active")
+
+        pool["total_deposited_wei"] = int(pool.get("total_deposited_wei", 0)) + amount
+        pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) + amount
+
+        depositors = pool.get("depositors", {})
+        depositors[sender] = int(depositors.get(sender, 0)) + amount
+        pool["depositors"] = depositors
+
+        self._save_pool(pool_id, pool)
+
+    @gl.public.write
+    def withdraw_liquidity(self, pool_id: str, amount: int) -> None:
+        sender = str(gl.message.sender_address)
+        if amount <= 0:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Withdrawal amount must be positive")
+
+        pool = self._get_pool(pool_id)
+        if pool == {}:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Pool not found")
+
+        depositors = pool.get("depositors", {})
+        if sender not in depositors:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} No deposit found")
+
+        if int(depositors.get(sender, 0)) < amount:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient deposit balance")
+
+        if int(pool.get("available_liquidity_wei", 0)) < amount:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient available liquidity in pool")
+
+        depositors[sender] = int(depositors.get(sender, 0)) - amount
+        pool["depositors"] = depositors
+        pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) - amount
+        pool["total_deposited_wei"] = max(0, int(pool.get("total_deposited_wei", 0)) - amount)
+
+        self._save_pool(pool_id, pool)
+        self._send_gen(sender, amount)
+
+    @gl.public.view
+    def get_all_pools(self) -> str:
+        pools = []
+        for pid in self.pool_ids:
+            pool = self._get_pool(pid)
+            if pool:
+                pools.append(pool)
+        return json.dumps(pools)
 
     # -------------------------------------------------------------------------
     # CORE BUSINESS LOGIC
@@ -155,6 +278,7 @@ class PoWLendingProtocol(gl.Contract):
             vouch_score=u256(0),
             collateral=u256(gl.message.value),
             debt=u256(0),
+            pool_id="",
             created_at=u256(0), # Epoch 0
             last_updated=u256(0)
         )
@@ -227,17 +351,31 @@ class PoWLendingProtocol(gl.Contract):
         prop.last_updated = u256(int(prop.last_updated) + 1)
         if prop.status == "APPROVED":
             loan_amount = int(prop.requested_amount)
-            interest_bps = int(decision["risk_score"])
-            interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
-            prop.debt = u256(loan_amount + interest_amount)
             
-            # Map requested principal to a defined lender-funded disbursement
-            current_balance = int(self.balances.get(prop.borrower, u256(0)))
-            self.balances[prop.borrower] = u256(current_balance + loan_amount)
-            
-            # Actual GenLayer native token disbursement
-            if loan_amount > 0:
-                _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
+            # Find an active pool with enough liquidity
+            funded_by_pool = ""
+            for pid in self.pool_ids:
+                pool = self._get_pool(pid)
+                if pool.get("status") == "ACTIVE" and int(pool.get("available_liquidity_wei", 0)) >= loan_amount:
+                    funded_by_pool = pid
+                    pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) - loan_amount
+                    self._save_pool(pid, pool)
+                    break
+
+            if not funded_by_pool and loan_amount > 0:
+                prop.status = "REJECTED"
+                prop.ai_reasoning += " [SYSTEM OVERRIDE: Insufficient Liquidity in all Pools.]"
+            else:
+                prop.pool_id = funded_by_pool
+                interest_bps = int(decision["risk_score"])
+                interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
+                prop.debt = u256(loan_amount + interest_amount)
+                
+                current_balance = int(self.balances.get(prop.borrower, u256(0)))
+                self.balances[prop.borrower] = u256(current_balance + loan_amount)
+                
+                if loan_amount > 0:
+                    _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
             
         self.proposals[proposal_id] = prop
         
@@ -287,21 +425,36 @@ class PoWLendingProtocol(gl.Contract):
         
         prop.validator_notes = decision["summary"]
         if decision["verdict"] == "OVERTURN":
-            prop.status = "APPROVED"
             loan_amount = int(prop.requested_amount)
-            interest_bps = int(prop.risk_score) if int(prop.risk_score) > 0 else 500
-            interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
-            prop.debt = u256(loan_amount + interest_amount)
             
-            current_balance = int(self.balances.get(prop.borrower, u256(0)))
-            self.balances[prop.borrower] = u256(current_balance + loan_amount)
-            
-            if loan_amount > 0:
-                _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
-            
-            self.state.total_rejected = u256(int(self.state.total_rejected) - 1)
-            self.state.total_approved = u256(int(self.state.total_approved) + 1)
-            self.state.total_capital_approved = u256(int(self.state.total_capital_approved) + loan_amount)
+            funded_by_pool = ""
+            for pid in self.pool_ids:
+                pool = self._get_pool(pid)
+                if pool.get("status") == "ACTIVE" and int(pool.get("available_liquidity_wei", 0)) >= loan_amount:
+                    funded_by_pool = pid
+                    pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) - loan_amount
+                    self._save_pool(pid, pool)
+                    break
+                    
+            if not funded_by_pool and loan_amount > 0:
+                prop.status = "REJECTED"
+                prop.validator_notes += " [SYSTEM OVERRIDE: Insufficient Liquidity in all Pools for Overturn.]"
+            else:
+                prop.status = "APPROVED"
+                prop.pool_id = funded_by_pool
+                interest_bps = int(prop.risk_score) if int(prop.risk_score) > 0 else 500
+                interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
+                prop.debt = u256(loan_amount + interest_amount)
+                
+                current_balance = int(self.balances.get(prop.borrower, u256(0)))
+                self.balances[prop.borrower] = u256(current_balance + loan_amount)
+                
+                if loan_amount > 0:
+                    _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
+                
+                self.state.total_rejected = u256(int(self.state.total_rejected) - 1)
+                self.state.total_approved = u256(int(self.state.total_approved) + 1)
+                self.state.total_capital_approved = u256(int(self.state.total_capital_approved) + loan_amount)
             
         self.proposals[proposal_id] = prop
         return True
@@ -365,6 +518,14 @@ class PoWLendingProtocol(gl.Contract):
         if collateral_amount > 0:
             _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(collateral_amount))
             
+        # Return principal + interest to the liquidity pool that funded it
+        if prop.pool_id:
+            pool = self._get_pool(prop.pool_id)
+            if pool:
+                pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) + debt
+                pool["total_deposited_wei"] = int(pool.get("total_deposited_wei", 0)) + (debt - int(prop.requested_amount))
+                self._save_pool(prop.pool_id, pool)
+            
         prop.status = "REPAID"
         prop.debt = u256(0)
         prop.last_updated = u256(int(prop.last_updated) + 1)
@@ -424,7 +585,8 @@ class PoWLendingProtocol(gl.Contract):
                 "risk_score": int(p.risk_score),
                 "vouch_score": int(getattr(p, "vouch_score", 0)),
                 "collateral": str(int(getattr(p, "collateral", 0))),
-                "debt": str(int(getattr(p, "debt", 0)))
+                "debt": str(int(getattr(p, "debt", 0))),
+                "pool_id": getattr(p, "pool_id", "")
             })
         return json.dumps(out)
 

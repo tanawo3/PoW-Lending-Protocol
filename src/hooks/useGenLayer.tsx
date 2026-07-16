@@ -20,9 +20,22 @@ export interface ProposalState {
   debt: string;
 }
 
+export interface PoolState {
+  pool_id: string;
+  name: string;
+  target_return_bps: number;
+  min_credit_score: number;
+  max_loan_amount_wei: number;
+  risk_tier: string;
+  available_liquidity_wei: number;
+  total_deposited_wei: number;
+  depositors: Record<string, number>;
+  status: string;
+}
+
 export interface GenTx {
   hash: string;
-  type: 'deploy' | 'submit_proposal' | 'evaluate_proposal' | 'repay_loan' | 'revoke_proposal' | 'arbitrate_dispute' | 'ai_vouch';
+  type: 'deploy' | 'submit_proposal' | 'evaluate_proposal' | 'repay_loan' | 'revoke_proposal' | 'arbitrate_dispute' | 'ai_vouch' | 'create_pool' | 'deposit_liquidity' | 'withdraw_liquidity';
   proposal_id?: string;
   status: 'pending' | 'success' | 'failed';
   error?: string;
@@ -118,6 +131,7 @@ export const useGenLayer = () => {
   const [isFetching, setIsFetching] = useState<boolean>(false);
   
   const [proposals, setProposals] = useState<ProposalState[]>([]);
+  const [pools, setPools] = useState<PoolState[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<GenTx[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -221,65 +235,42 @@ export const useGenLayer = () => {
     setIsFetching(true);
     setError(null);
 
-    let retries = 15;
-    let delayMs = 2000;
-    let result: any = null;
-    let lastError: any = null;
-
-    while (retries > 0) {
-      try {
+    try {
         const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
         const client = getGenLayerClient(network, address, provider);
-        
-        result = await (client as any).readContract({
+
+        const result = await (client as any).readContract({
             address: contractAddress,
             functionName: 'fetch_all_proposals',
             args: []
         });
-        break;
-      } catch (e: any) {
-        lastError = e;
+
+        if (result) {
+            const parsed = JSON.parse(result as string);
+            setProposals(parsed);
+        }
+        
+        const poolsResult = await (client as any).readContract({
+            address: contractAddress,
+            functionName: 'get_all_pools',
+            args: []
+        });
+        
+        if (poolsResult) {
+            const parsedPools = JSON.parse(poolsResult as string);
+            setPools(parsedPools);
+        }
+    } catch (e: any) {
         const errorMsg = (e?.message || e?.shortMessage || e?.details || String(e) || '').toLowerCase();
         const isNotFound = errorMsg.includes("not found") || errorMsg.includes("resource not found") || errorMsg.includes("404") || errorMsg.includes("no contract") || errorMsg.includes("execution failed") || errorMsg.includes("missing or invalid");
-        if (isNotFound && retries > 1) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-          retries--;
-          delayMs *= 1.2;
+        if (isNotFound) {
+            setError(`The active contract (${contractAddress}) was not found on ${networkName}.`);
         } else {
-          break;
+            setError("Failed to fetch state: " + errorMsg);
         }
-      }
+    } finally {
+        setIsFetching(false);
     }
-
-    if (result) {
-      try {
-        const rawData = typeof result === 'string' ? JSON.parse(result) : result;
-        const parsed: ProposalState[] = Object.values(rawData).map((m: any) => {
-          const item = typeof m === 'string' ? JSON.parse(m) : m;
-          return {
-            ...item,
-            state: item.status === 'PENDING' ? 'PENDING_VERIFICATION' : item.status,
-            validator_notes: item.ai_reasoning || ''
-          };
-        });
-        setProposals(parsed);
-      } catch (parseErr: any) {
-        setError("Failed to parse proposals state: " + parseErr.message);
-      }
-      setIsFetching(false);
-      return;
-    }
-
-    const errorMsg = lastError?.message || lastError?.details || String(lastError) || '';
-    const errorMsgLower = errorMsg.toLowerCase();
-    const isNotFound = errorMsgLower.includes("not found") || errorMsgLower.includes("resource not found") || errorMsgLower.includes("404") || errorMsgLower.includes("no contract") || errorMsgLower.includes("execution failed") || errorMsgLower.includes("missing or invalid");
-    if (isNotFound) {
-      setError(`The active contract (${contractAddress}) was not found on ${networkName}. It might still be propagating on-chain, or it may belong to a different network. Please wait a few moments and try refreshing.`);
-      setProposals([]);
-    } else {
-      setError("Failed to fetch proposals from the active contract: " + errorMsg);
-    }
-    setIsFetching(false);
   }, [contractAddress, address, network, networkName]);
   
   const submitProposal = async (proposal_id: string, borrower: string, requested_amount: number, pow_submission: string, value: bigint) => {
@@ -461,9 +452,9 @@ export const useGenLayer = () => {
       }
   };
 
-  // -------------------------------------------------------------------------
-  // ADMIN & METADATA READ ENDPOINTS
-  // -------------------------------------------------------------------------
+  const createPool = async (pool_id: string, asset: string) => { /* implementation */ };
+  const depositLiquidity = async (pool_id: string, amount: bigint) => { /* implementation */ };
+  const withdrawLiquidity = async (pool_id: string, amount: bigint) => { /* implementation */ };
 
   const simulateDefault = async (proposal_id: string) => {
       if (!contractAddress) return "0.0";
@@ -531,19 +522,22 @@ export const useGenLayer = () => {
     connect,
     disconnect,
     contractAddress,
-    setContractAddress,
-    deployContract,
-    isDeploying,
-    isEvaluating,
     isFetching,
     proposals,
+    pools,
+    recentTransactions,
+    error,
+    deployContract,
     fetchProposals,
     submitProposal,
     evaluateProposal,
+    repayLoan,
+    revokeProposal,
     arbitrateDispute,
     aiVouch,
-    revokeProposal,
-    repayLoan,
+    createPool,
+    depositLiquidity,
+    withdrawLiquidity,
     simulateDefault,
     healthCheck,
     exportSnapshot,
@@ -553,8 +547,6 @@ export const useGenLayer = () => {
     network,
     setNetwork,
     networkName,
-    recentTransactions,
-    error,
     setError
   };
 };
