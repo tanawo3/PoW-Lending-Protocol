@@ -9,21 +9,32 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [minCredit, setMinCredit] = useState('');
   const [maxLoan, setMaxLoan] = useState('');
   const [riskTier, setRiskTier] = useState('MEDIUM');
+  const [isTargeted, setIsTargeted] = useState(false);
+  const [criteria, setCriteria] = useState('');
 
   const [depositAmounts, setDepositAmounts] = useState<{ [id: string]: string }>({});
   const [withdrawAmounts, setWithdrawAmounts] = useState<{ [id: string]: string }>({});
 
   const handleCreatePool = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPoolName || !targetReturn || !minCredit || !maxLoan) return;
-    await genLayer.createPool(
-      newPoolName,
-      parseInt(targetReturn, 10),
-      parseInt(minCredit, 10),
-      parseInt(maxLoan, 10),
-      riskTier
-    );
-    setNewPoolName(''); setTargetReturn(''); setMinCredit(''); setMaxLoan(''); setRiskTier('MEDIUM');
+    if (isTargeted) {
+        if (!newPoolName || !targetReturn || !criteria) return;
+        await genLayer.createTargetedPool(
+            newPoolName,
+            parseInt(targetReturn, 10),
+            criteria
+        );
+    } else {
+        if (!newPoolName || !targetReturn || !minCredit || !maxLoan) return;
+        await genLayer.createPool(
+          newPoolName,
+          parseInt(targetReturn, 10),
+          parseInt(minCredit, 10),
+          parseInt(maxLoan, 10),
+          riskTier
+        );
+    }
+    setNewPoolName(''); setTargetReturn(''); setMinCredit(''); setMaxLoan(''); setRiskTier('MEDIUM'); setCriteria('');
   };
 
   const revealUp = {
@@ -51,6 +62,14 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
               </div>
 
               <form onSubmit={handleCreatePool} className="flex flex-col gap-6">
+                <div className="flex items-center justify-between bg-[var(--bg-primary)] border border-[var(--border-light)] p-4">
+                  <span className="font-mono text-sm uppercase tracking-widest text-[var(--text-main)]">Targeted Pool?</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={isTargeted} onChange={() => setIsTargeted(!isTargeted)} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-[var(--border-light)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--text-main)]"></div>
+                  </label>
+                </div>
+
                 <div className="flex flex-col gap-2 relative">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Pool Name</label>
                   <input type="text" value={newPoolName} onChange={e => setNewPoolName(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="e.g. Alpha Yield" required />
@@ -61,25 +80,38 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                     <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Target Return (BPS)</label>
                     <input type="number" value={targetReturn} onChange={e => setTargetReturn(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-lg font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="500" required />
                   </div>
-                  <div className="flex flex-col gap-2 relative">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Min Credit Score</label>
-                    <input type="number" value={minCredit} onChange={e => setMinCredit(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-lg font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="700" required />
-                  </div>
+                  {!isTargeted && (
+                      <div className="flex flex-col gap-2 relative">
+                        <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Min Credit Score</label>
+                        <input type="number" value={minCredit} onChange={e => setMinCredit(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-lg font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="700" required />
+                      </div>
+                  )}
                 </div>
 
-                <div className="flex flex-col gap-2 relative">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Max Loan Amount</label>
-                  <input type="number" value={maxLoan} onChange={e => setMaxLoan(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-lg font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="5000" required />
-                </div>
+                {!isTargeted ? (
+                    <>
+                        <div className="flex flex-col gap-2 relative">
+                          <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Max Loan Amount</label>
+                          <input type="number" value={maxLoan} onChange={e => setMaxLoan(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-lg font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="5000" required />
+                        </div>
 
-                <div className="flex flex-col gap-2 relative">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Risk Tier</label>
-                  <select value={riskTier} onChange={e => setRiskTier(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] py-3 px-4 text-sm font-mono uppercase text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none cursor-pointer">
-                    <option value="LOW">Low Risk</option>
-                    <option value="MEDIUM">Medium Risk</option>
-                    <option value="HIGH">High Risk</option>
-                  </select>
-                </div>
+                        <div className="flex flex-col gap-2 relative">
+                          <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Risk Tier</label>
+                          <select value={riskTier} onChange={e => setRiskTier(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] py-3 px-4 text-sm font-mono uppercase text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none cursor-pointer">
+                            <option value="LOW">Low Risk</option>
+                            <option value="MEDIUM">Medium Risk</option>
+                            <option value="HIGH">High Risk</option>
+                          </select>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex flex-col gap-2 relative">
+                      <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2 text-purple-400">
+                        Target Criteria (AI Interpreted)
+                      </label>
+                      <textarea value={criteria} onChange={e => setCriteria(e.target.value)} className="w-full bg-transparent border border-[var(--border-light)] p-4 text-sm font-mono text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-purple-500 focus:outline-none transition-all rounded-none resize-none h-24" placeholder="e.g. Must have >500 GitHub Stars and an open-source Next.js repository." required />
+                    </div>
+                )}
                 
                 <button type="submit" disabled={genLayer.isFetching} className="btn-monolog group w-full mt-4 flex items-center justify-between overflow-hidden relative border border-[var(--text-main)] bg-[var(--text-main)] text-[var(--bg-primary)] hover:bg-transparent hover:text-[var(--text-main)] disabled:opacity-50 px-6 py-4 transition-colors">
                   <span className="text-sm tracking-widest uppercase font-mono relative z-10 font-bold">Deploy Liquidity Pool</span>
@@ -92,13 +124,24 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
 
         {/* Right Side: Existing Pools (Span 8) */}
         <motion.div variants={revealUp} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} className="lg:col-span-8 flex flex-col gap-6">
-          <div className="flex items-end justify-between border-b border-[var(--text-main)] pb-4 mb-4">
-            <h3 className="font-display font-bold text-3xl uppercase tracking-tighter text-[var(--text-main)] leading-none">
-              Active Yield Pools
-            </h3>
-            <span className="font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase">
-              Total {genLayer.pools.length} Pools
-            </span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between border-b border-[var(--text-main)] pb-4 mb-4 gap-4">
+            <div>
+                <h3 className="font-display font-bold text-3xl uppercase tracking-tighter text-[var(--text-main)] leading-none mb-2">
+                  Active Yield Pools
+                </h3>
+                <span className="font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase">
+                  Total {genLayer.pools.length} Pools
+                </span>
+            </div>
+            
+            <button 
+                onClick={() => genLayer.rebalanceMacroRisk()}
+                disabled={genLayer.isFetching}
+                className="btn-monolog group flex items-center gap-2 border border-orange-500/50 bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-[var(--bg-secondary)] px-4 py-2 transition-colors disabled:opacity-50"
+            >
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-[10px] tracking-widest uppercase font-mono font-bold">Rebalance Macro Risk</span>
+            </button>
           </div>
 
           <div className="flex flex-col gap-6">
@@ -149,6 +192,13 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                         </div>
                       </div>
                     </div>
+
+                    {pool.criteria && (
+                      <div className="mb-6 p-4 border border-purple-500/30 bg-purple-500/5">
+                          <span className="block font-mono text-[10px] text-purple-400 tracking-widest uppercase mb-2">AI Targeting Criteria</span>
+                          <p className="font-mono text-sm text-[var(--text-main)]">{pool.criteria}</p>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {/* Deposit Section */}

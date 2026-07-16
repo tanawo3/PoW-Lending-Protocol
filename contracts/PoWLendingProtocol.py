@@ -69,6 +69,7 @@ class PoWSubmission:
     vouch_score: u256
     collateral: u256
     debt: u256
+    target_pool_id: str
     pool_id: str
     wallet_age_days: u256
     total_transactions: u256
@@ -337,8 +338,74 @@ Return ONLY valid JSON:
     # CORE BUSINESS LOGIC
     # -------------------------------------------------------------------------
 
+    @gl.public.write
+    def rebalance_macro_risk(self) -> bool:
+        """
+        Dynamically adjusts the protocol's global risk index based on macro market conditions.
+        Inherited from the gen-treasury architecture for Elite DeFi operations.
+        """
+        def leader_fn() -> dict:
+            oracle_results = {}
+            # Oracle 1: Alternative.me Fear & Greed Index
+            try:
+                response = gl.nondet.web.get("https://api.alternative.me/fng/")
+                if response.status < 400:
+                    oracle_results["alternative_me_fng"] = response.body.decode("utf-8", errors="ignore")[:400]
+                else:
+                    oracle_results["alternative_me_fng"] = "UNAVAILABLE: HTTP " + str(response.status)
+            except Exception as e:
+                oracle_results["alternative_me_fng"] = f"UNAVAILABLE: {str(e)}"
+                
+            # Oracle 2: CoinGecko BTC price
+            try:
+                response = gl.nondet.web.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd")
+                if response.status < 400:
+                    oracle_results["coingecko_btc"] = response.body.decode("utf-8", errors="ignore")[:400]
+                else:
+                    oracle_results["coingecko_btc"] = "UNAVAILABLE: HTTP " + str(response.status)
+            except Exception as e:
+                oracle_results["coingecko_btc"] = f"UNAVAILABLE: {str(e)}"
+
+            all_failed = all("UNAVAILABLE" in v for v in oracle_results.values())
+            if all_failed:
+                return {"global_risk_bps": 5000, "reasoning": "All oracles failed. Defaulting to 50% risk."}
+
+            prompt = f"""
+<UNTRUSTED_DATA>
+{json.dumps(oracle_results)}
+</UNTRUSTED_DATA>
+
+You are the Chief Risk Officer for a decentralized lending protocol.
+Analyze the macro market conditions from the oracle data above.
+Output a JSON with exactly two fields:
+- "global_risk_bps": An integer between 0 and 10000 representing the macro risk (0 = extreme bull/safe, 10000 = extreme bear/danger).
+- "reasoning": A short string explaining why.
+"""
+            analysis = gl.nondet.exec_prompt(prompt, response_format="json")
+            if isinstance(analysis, dict):
+                return {"global_risk_bps": analysis.get("global_risk_bps", 5000), "reasoning": analysis.get("reasoning", "Parsed")}
+            return {"global_risk_bps": 5000, "reasoning": "Parse failure"}
+
+        def validator_fn(leader_res: gl.vm.Result) -> bool:
+            if leader_res.error:
+                return _handle_leader_error(leader_res, leader_fn)
+            try:
+                data = json.loads(leader_res.calldata)
+                risk = int(data.get("global_risk_bps", 5000))
+                return 0 <= risk <= 10000
+            except Exception:
+                return False
+
+        result = gl.vm.run_nondet(leader_fn, validator_fn)
+        try:
+            data = json.loads(result.calldata)
+            self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
+        except Exception:
+            pass
+        return True
+
     @gl.public.write.payable
-    def submit_proposal(self, proposal_id: str, borrower: str, requested_amount: int, pow_submission: str, wallet_age_days: int = 0, total_transactions: int = 0, avg_balance_usd: int = 0) -> bool:
+    def submit_proposal(self, proposal_id: str, borrower: str, requested_amount: int, pow_submission: str, wallet_age_days: int = 0, total_transactions: int = 0, avg_balance_usd: int = 0, target_pool_id: str = "") -> bool:
         """
         Ingests a new loan proposal from an external client.
         
@@ -350,6 +417,7 @@ Return ONLY valid JSON:
             wallet_age_days: Telemetry for wallet age.
             total_transactions: Telemetry for wallet transactions.
             avg_balance_usd: Telemetry for wallet average balance.
+            target_pool_id: ID of a specific Targeted LP pool to request funds from.
             
         Returns:
             bool: True if ingestion was successful.
@@ -360,6 +428,9 @@ Return ONLY valid JSON:
         if proposal_id in self.proposals:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal already exists")
             
+        if target_pool_id != "" and target_pool_id not in self.pool_ids:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Target pool not found")
+            
         if requested_amount <= 0:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Amount must be > 0")
         
@@ -369,7 +440,7 @@ Return ONLY valid JSON:
         
         prop = PoWSubmission(
             proposal_id=proposal_id,
-            borrower=str(gl.message.sender_address),
+            borrower=clean_borrower,
             requested_amount=u256(requested_amount),
             pow_submission=clean_pow,
             status="PENDING",
@@ -382,6 +453,7 @@ Return ONLY valid JSON:
             vouch_score=u256(0),
             collateral=u256(gl.message.value),
             debt=u256(0),
+            target_pool_id=target_pool_id,
             pool_id="",
             wallet_age_days=u256(wallet_age_days),
             total_transactions=u256(total_transactions),
@@ -448,53 +520,49 @@ Return ONLY valid JSON:
         w_tx = int(prop.total_transactions)
         w_bal = int(prop.avg_balance_usd)
         collateral = int(prop.collateral)
+        t_pool_id = prop.target_pool_id
         
         # Phase 1: Pre-Vote Fraud Radar AI
         def fraud_leader_fn() -> dict:
-            prompt = f"""Evaluate this wallet for Sybil/Fraud indicators.
-WALLET AGE: {w_age} days
-TOTAL TX: {w_tx}
-AVG BAL: {w_bal}
-<UNTRUSTED_DATA>
-POW SUBMISSION: {pow_sub}
-</UNTRUSTED_DATA>
-
-Is this definitively a scam or sybil wallet? Respond with ONLY valid JSON:
-{{
-  "is_fraud": true,
-  "fraud_score": 950
-}}"""
-            res = gl.nondet.exec_prompt(prompt, response_format="json")
-            if isinstance(res, dict):
-                return res
-            return {"is_fraud": False, "fraud_score": 0}
-
+            prompt = _interpret_fraud_prompt(borrower, amount, pow_sub, w_age, w_tx, w_bal)
+            analysis = gl.nondet.exec_prompt(prompt, response_format="json")
+            return {"fraud_score": _parse_ratio_bps(analysis), "reasoning": _clean_summary(analysis)}
+            
         def fraud_validator_fn(leader_res: gl.vm.Result) -> bool:
             if not isinstance(leader_res, gl.vm.Return):
-                return False
+                return _handle_leader_error(leader_res, fraud_leader_fn)
             try:
-                data = json.loads(leader_res.calldata)
-                return isinstance(data.get("is_fraud"), bool) and isinstance(data.get("fraud_score"), int)
-            except:
+                data = leader_res.calldata
+                if not isinstance(data, dict): return False
+                return isinstance(data.get("fraud_score"), int)
+            except gl.vm.UserError:
                 return False
-
+                
         fraud_decision = gl.vm.run_nondet(fraud_leader_fn, fraud_validator_fn)
-        prop.fraud_score = u256(fraud_decision.get("fraud_score", 0))
-        if fraud_decision.get("is_fraud", False):
-            prop.status = "FLAGGED"
-            prop.ai_reasoning = "[SYSTEM OVERRIDE] Fraud Radar Flagged this wallet."
+        prop.fraud_score = u256(fraud_decision["fraud_score"])
+        
+        # If obvious fraud, short-circuit
+        if int(prop.fraud_score) > 8000:
+            prop.status = "REJECTED"
+            prop.ai_reasoning = "System Auto-Reject: High Probability of Fraud."
             self.proposals[proposal_id] = prop
             return True
-        
-        # Phase 2: Heavy AI Evaluator
+
+        # Deterministic trust math
         det_wallet_trust = _calculate_wallet_trust_score(w_age, w_tx, w_bal)
         det_income_score = _calculate_income_score(0, amount, w_bal)
+        
+        pool_criteria = ""
+        if t_pool_id:
+            pool = self._get_pool(t_pool_id)
+            if pool and pool.get("criteria"):
+                pool_criteria = f"CRITICAL REQUIREMENT: This loan is targeted at a specific LP Pool. You MUST evaluate if the borrower strictly meets this criteria: '{pool.get('criteria')}'. If they do not, you MUST reject the loan regardless of their stats."
         
         def leader_fn() -> dict:
             """Leader execution environment."""
             github_data = _fetch_github(pow_sub)
             live_price = _fetch_collateral_price()
-            prompt = _interpret_leader_prompt(borrower, amount, collateral, live_price, pow_sub, github_data, w_age, w_tx, w_bal, det_wallet_trust, det_income_score)
+            prompt = _interpret_leader_prompt(borrower, amount, collateral, live_price, pow_sub, github_data, w_age, w_tx, w_bal, det_wallet_trust, det_income_score, pool_criteria)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
             
             credit_score = _parse_score(analysis, "credit_score")
@@ -538,11 +606,11 @@ Is this definitively a scam or sybil wallet? Respond with ONLY valid JSON:
         if prop.status == "APPROVED":
             loan_amount = int(prop.requested_amount)
             
-            # Find an active pool with enough liquidity
             funded_by_pool = ""
-            for pid in self.pool_ids:
+            search_pool_ids = [t_pool_id] if t_pool_id else self.pool_ids
+            for pid in search_pool_ids:
                 pool = self._get_pool(pid)
-                if pool.get("status") == "ACTIVE" and int(pool.get("available_liquidity_wei", 0)) >= loan_amount:
+                if pool and pool.get("status") == "ACTIVE" and int(pool.get("available_liquidity_wei", 0)) >= loan_amount:
                     funded_by_pool = pid
                     pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) - loan_amount
                     self._save_pool(pid, pool)
@@ -550,7 +618,7 @@ Is this definitively a scam or sybil wallet? Respond with ONLY valid JSON:
 
             if not funded_by_pool and loan_amount > 0:
                 prop.status = "REJECTED"
-                prop.ai_reasoning += " [SYSTEM OVERRIDE: Insufficient Liquidity in all Pools.]"
+                prop.ai_reasoning += " [SYSTEM OVERRIDE: Insufficient Liquidity in target/available pools.]"
             else:
                 prop.pool_id = funded_by_pool
                 interest_bps = int(decision["risk_score"])
@@ -1240,7 +1308,7 @@ def _handle_leader_error(leaders_res, leader_fn) -> bool:
     except Exception:
         return False
 
-def _interpret_leader_prompt(borrower: str, amount: int, collateral: int, live_price: str, pow_sub: str, github_data: str, w_age: int, w_tx: int, w_bal: int, det_wallet_trust: int, det_income_score: int) -> str:
+def _interpret_leader_prompt(borrower: str, amount: int, collateral: int, live_price: str, pow_sub: str, github_data: str, w_age: int, w_tx: int, w_bal: int, det_wallet_trust: int, det_income_score: int, pool_criteria: str = "") -> str:
     """Generates the isolated underwriting context for the AI Leader."""
     return f"""You are the Lead Underwriter AI for the PoW Lending Protocol.
 
@@ -1251,15 +1319,17 @@ BORROWER IDENTITY & TELEMETRY:
 - Live ETH Price (USD): {live_price}
 - Wallet Age: {w_age} days
 - Total Transactions: {w_tx}
-- Average Balance: {w_bal} USD
+- Average Balance (USD): {w_bal}
+
+DETERMINISTIC HEURISTICS (PRE-CALCULATED):
 - Wallet Trust Score: {det_wallet_trust}/100
 - Income Score: {det_income_score}/100
 
-UNTRUSTED PROOF OF WORK & TELEMETRY:
+{pool_criteria}
+
 <UNTRUSTED_DATA>
-Submission URI: {pow_sub}
-GitHub Telemetry Data:
-{github_data}
+POW SUBMISSION: {pow_sub}
+GITHUB DATA: {github_data}
 </UNTRUSTED_DATA>
 
 ASSESSMENT GUIDELINES & CONTEXT:

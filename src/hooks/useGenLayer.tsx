@@ -321,7 +321,7 @@ export const useGenLayer = () => {
     }
   }, [contractAddress, address, network, networkName]);
   
-  const submitProposal = async (proposal_id: string, requested_amount: number, pow_submission: string, wallet_age_days: number, total_transactions: number, avg_balance_usd: number, value: bigint) => {
+  const submitProposal = async (proposal_id: string, requested_amount: number, pow_submission: string, wallet_age_days: number, total_transactions: number, avg_balance_usd: number, value: bigint, target_pool_id: string = "") => {
       if (!contractAddress) return;
       setError(null);
 
@@ -332,8 +332,8 @@ export const useGenLayer = () => {
           if (typeof (client as any).connect === 'function') {
               try {
                   await (client as any).connect(network);
-              } catch (connErr: any) {
-                  // Silent connect failure handling
+              } catch (e) {
+                  console.log("Connect call failed, continuing with provider", e);
               }
           }
 
@@ -341,7 +341,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_proposal',
-              args: [proposal_id, address, requested_amount, pow_submission, wallet_age_days, total_transactions, avg_balance_usd],
+              args: [proposal_id, address, requested_amount, pow_submission, wallet_age_days, total_transactions, avg_balance_usd, target_pool_id],
               value: value
           });
           
@@ -525,7 +525,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'create_pool',
-              args: [name, target_return_bps, min_credit_score, max_loan_amount_wei, risk_tier]
+              args: [name, target_return_bps, min_credit_score, max_loan_amount_wei, risk_tier, ""]
           });
           addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
@@ -533,6 +533,53 @@ export const useGenLayer = () => {
           await fetchProposals();
       } catch (e: any) {
           setError("Failed to create pool: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const createTargetedPool = async (name: string, target_return_bps: number, criteria: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'create_targeted_pool',
+              args: [name, target_return_bps, criteria]
+          });
+          addTx({ hash, type: 'create_targeted_pool', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to create targeted pool: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const rebalanceMacroRisk = async () => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'rebalance_macro_risk',
+              args: []
+          });
+          addTx({ hash, type: 'rebalance_macro_risk', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+      } catch (e: any) {
+          setError("Failed to rebalance macro risk: " + stripErrorPrefix(e.message));
       } finally {
           setIsEvaluating(false);
       }
@@ -847,7 +894,8 @@ export const useGenLayer = () => {
     networkName,
     setError,
     setContractAddress,
-    isDeploying
+    isDeploying,
+    createTargetedPool,
+    rebalanceMacroRisk
   };
 };
-

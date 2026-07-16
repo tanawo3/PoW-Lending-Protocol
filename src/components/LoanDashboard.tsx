@@ -16,6 +16,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [totalTx, setTotalTx] = useState('50');
   const [avgBalance, setAvgBalance] = useState('1500');
   const [treasuryBalance, setTreasuryBalance] = useState('0');
+  const [targetPoolId, setTargetPoolId] = useState('');
   const [collateralAmount, setCollateralAmount] = useState('0');
   const [disputeEvidence, setDisputeEvidence] = useState<{ [id: string]: string }>({});
   const [vouchRationale, setVouchRationale] = useState<{ [id: string]: string }>({});
@@ -46,9 +47,10 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
       parseInt(walletAgeDays, 10), 
       parseInt(totalTx, 10), 
       parseInt(avgBalance, 10), 
-      BigInt(0)
+      BigInt(0),
+      targetPoolId
     );
-    setProposalId(''); setRequestedAmount(''); setPowSubmission(''); setGithubContributions(''); setDaoVotes(''); setCollateralAmount('0');
+    setProposalId(''); setRequestedAmount(''); setPowSubmission(''); setGithubContributions(''); setDaoVotes(''); setCollateralAmount('0'); setTargetPoolId('');
   };
 
   const handleEvaluate = async (id: string) => {
@@ -205,6 +207,16 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                     <input type="number" value={avgBalance} onChange={e => setAvgBalance(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1500" />
                   </div>
                 </div>
+                <div className="flex flex-col gap-2">
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Target LP Pool (Optional)</label>
+                  <select value={targetPoolId} onChange={e => setTargetPoolId(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] py-3 px-4 text-sm font-mono uppercase text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none cursor-pointer">
+                    <option value="">Global Liquidity (Any)</option>
+                    {genLayer.pools.map(p => (
+                        <option key={p.pool_id} value={p.pool_id}>{p.name} ({p.criteria ? 'TARGETED' : p.risk_tier})</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Evidence Payload</label>
                   <textarea value={powSubmission} onChange={e => setPowSubmission(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] p-5 text-sm font-medium text-[var(--text-main)] placeholder-[var(--text-muted)] focus:border-[var(--text-main)] focus:outline-none transition-all resize-none h-32 rounded-none mt-2" placeholder="Describe the proof of work..." required />
