@@ -9,6 +9,8 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [requestedAmount, setRequestedAmount] = useState('');
   const [powSubmission, setPowSubmission] = useState('');
   const [collateralAmount, setCollateralAmount] = useState('0');
+  const [disputeEvidence, setDisputeEvidence] = useState<{ [id: string]: string }>({});
+  const [vouchRationale, setVouchRationale] = useState<{ [id: string]: string }>({});
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,6 +154,11 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                           <div className="font-display font-extrabold text-3xl text-[var(--text-main)] mt-2 border-b-4 border-[var(--text-main)] pb-1">
                             ${prop.requested_amount}
                           </div>
+                          {prop.state === 'APPROVED' && prop.debt && (
+                            <div className="font-mono text-[10px] uppercase text-[var(--text-main)] mt-1">
+                              Repay: ${prop.debt} ({(prop.risk_score / 100).toFixed(2)}% Premium)
+                            </div>
+                          )}
                         </div>
                       </div>
                       
@@ -164,22 +171,67 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
 
                       <div className="pt-8 border-t border-[var(--text-main)]">
                         {prop.state === 'PENDING_VERIFICATION' ? (
-                          <button 
-                            onClick={() => handleEvaluate(prop.proposal_id)}
-                            disabled={genLayer.isEvaluating}
-                            className="w-full sm:w-auto px-10 py-5 bg-[var(--text-main)] text-[var(--bg-secondary)] hover:bg-[var(--card-dark)] flex items-center justify-center gap-4 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50 hover:-translate-y-1"
-                          >
-                            {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                            {genLayer.isEvaluating ? "Processing Consensus..." : "Initiate Validator Consensus"}
-                          </button>
-                        ) : (
-                          <div className="mt-4">
-                            <span className="font-mono text-[var(--text-main)] font-bold text-[10px] uppercase tracking-widest block mb-4 border-b border-[var(--text-main)] pb-2 w-max">
-                              Consensus Output
-                            </span>
-                            <div className="text-[var(--text-muted)] font-medium text-sm leading-relaxed border-l-2 border-[var(--text-main)] pl-4">
-                              {prop.validator_notes || "No verifiable notes recorded."}
+                          <div className="flex flex-col gap-6">
+                            <button 
+                              onClick={() => handleEvaluate(prop.proposal_id)}
+                              disabled={genLayer.isEvaluating}
+                              className="w-full sm:w-auto px-10 py-5 bg-[var(--text-main)] text-[var(--bg-secondary)] hover:bg-[var(--card-dark)] flex items-center justify-center gap-4 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50 hover:-translate-y-1"
+                            >
+                              {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                              {genLayer.isEvaluating ? "Processing Consensus..." : "Initiate Validator Consensus"}
+                            </button>
+                            
+                            <div className="mt-4 border border-[var(--border-light)] p-6 bg-[var(--bg-primary)] flex flex-col sm:flex-row gap-4 items-end">
+                              <div className="flex-grow w-full">
+                                <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Social Vouching Rationale</label>
+                                <input type="text" value={vouchRationale[prop.proposal_id] || ''} onChange={e => setVouchRationale({...vouchRationale, [prop.proposal_id]: e.target.value})} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="Explain why this payload is valid..." />
+                              </div>
+                              <button 
+                                onClick={() => genLayer.aiVouch(prop.proposal_id, vouchRationale[prop.proposal_id] || '')}
+                                disabled={genLayer.isEvaluating || !vouchRationale[prop.proposal_id]}
+                                className="w-full sm:w-auto px-6 py-2 border border-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-all disabled:opacity-50"
+                              >
+                                {genLayer.isEvaluating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                Vouch
+                              </button>
                             </div>
+                          </div>
+                        ) : (
+                          <div className="mt-4 flex flex-col gap-6">
+                            <div>
+                              <span className="font-mono text-[var(--text-main)] font-bold text-[10px] uppercase tracking-widest block mb-4 border-b border-[var(--text-main)] pb-2 w-max">
+                                Consensus Output
+                              </span>
+                              <div className="text-[var(--text-muted)] font-medium text-sm leading-relaxed border-l-2 border-[var(--text-main)] pl-4">
+                                {prop.validator_notes || "No verifiable notes recorded."}
+                              </div>
+                            </div>
+                            
+                            {prop.state === 'REJECTED' && (
+                              <div className="mt-4 border border-red-900/30 p-6 bg-[var(--bg-primary)] flex flex-col gap-4">
+                                <div>
+                                  <label className="font-mono text-[10px] uppercase tracking-widest text-red-500 flex items-center gap-2"><XCircle className="w-3 h-3"/> AI Arbitration Tribunal (Dispute)</label>
+                                  <input type="text" value={disputeEvidence[prop.proposal_id] || ''} onChange={e => setDisputeEvidence({...disputeEvidence, [prop.proposal_id]: e.target.value})} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-red-500 focus:outline-none transition-all rounded-none mt-2" placeholder="Paste extra evidence link (GitHub issue, Tweet)..." />
+                                </div>
+                                <button 
+                                  onClick={() => genLayer.arbitrateDispute(prop.proposal_id, disputeEvidence[prop.proposal_id] || '')}
+                                  disabled={genLayer.isEvaluating || !disputeEvidence[prop.proposal_id]}
+                                  className="w-full sm:w-auto self-start px-6 py-2 border border-red-500 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-all disabled:opacity-50"
+                                >
+                                  {genLayer.isEvaluating ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Initiate Arbitration"}
+                                </button>
+                              </div>
+                            )}
+
+                            {prop.state === 'APPROVED' && (
+                              <button 
+                                onClick={() => genLayer.repayLoan(prop.proposal_id)}
+                                disabled={genLayer.isEvaluating}
+                                className="w-full sm:w-auto self-start mt-4 px-6 py-3 bg-[var(--bg-primary)] border border-[var(--text-main)] text-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50"
+                              >
+                                {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Repay Loan & Debt"}
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

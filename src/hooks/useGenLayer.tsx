@@ -21,7 +21,7 @@ export interface ProposalState {
 
 export interface GenTx {
   hash: string;
-  type: 'deploy' | 'submit_proposal' | 'evaluate_proposal' | 'repay_loan' | 'revoke_proposal';
+  type: 'deploy' | 'submit_proposal' | 'evaluate_proposal' | 'repay_loan' | 'revoke_proposal' | 'arbitrate_dispute' | 'ai_vouch';
   proposal_id?: string;
   status: 'pending' | 'success' | 'failed';
   error?: string;
@@ -388,6 +388,54 @@ export const useGenLayer = () => {
       }
   };
 
+  const arbitrateDispute = async (proposal_id: string, evidence: string) => {
+      if (!contractAddress) return;
+      setIsEvaluating(true);
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'arbitrate_dispute',
+              args: [proposal_id, evidence]
+          });
+          addTx({ hash, type: 'arbitrate_dispute', proposal_id, status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Arbitration failed: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const aiVouch = async (proposal_id: string, rationale: string) => {
+      if (!contractAddress) return;
+      setIsEvaluating(true);
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'ai_vouch',
+              args: [proposal_id, rationale]
+          });
+          addTx({ hash, type: 'ai_vouch', proposal_id, status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Vouching failed: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
   return {
     address,
     isConnected,
@@ -403,6 +451,8 @@ export const useGenLayer = () => {
     fetchProposals,
     submitProposal,
     evaluateProposal,
+    arbitrateDispute,
+    aiVouch,
     repayLoan,
     network,
     setNetwork,
