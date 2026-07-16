@@ -11,6 +11,8 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [collateralAmount, setCollateralAmount] = useState('0');
   const [disputeEvidence, setDisputeEvidence] = useState<{ [id: string]: string }>({});
   const [vouchRationale, setVouchRationale] = useState<{ [id: string]: string }>({});
+  const [adminOutput, setAdminOutput] = useState<string>('');
+  const [adminInput, setAdminInput] = useState<string>('');
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +156,11 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                           <div className="font-display font-extrabold text-3xl text-[var(--text-main)] mt-2 border-b-4 border-[var(--text-main)] pb-1">
                             ${prop.requested_amount}
                           </div>
+                          {prop.vouch_score > 0 && (
+                            <div className="font-mono text-[10px] uppercase text-[var(--text-main)] mt-1 px-2 py-1 border border-[var(--text-main)]">
+                              Vouch XP: {prop.vouch_score}
+                            </div>
+                          )}
                           {prop.state === 'APPROVED' && prop.debt && (
                             <div className="font-mono text-[10px] uppercase text-[var(--text-main)] mt-1">
                               Repay: ${prop.debt} ({(prop.risk_score / 100).toFixed(2)}% Premium)
@@ -172,14 +179,24 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                       <div className="pt-8 border-t border-[var(--text-main)]">
                         {prop.state === 'PENDING_VERIFICATION' ? (
                           <div className="flex flex-col gap-6">
-                            <button 
-                              onClick={() => handleEvaluate(prop.proposal_id)}
-                              disabled={genLayer.isEvaluating}
-                              className="w-full sm:w-auto px-10 py-5 bg-[var(--text-main)] text-[var(--bg-secondary)] hover:bg-[var(--card-dark)] flex items-center justify-center gap-4 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50 hover:-translate-y-1"
-                            >
-                              {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                              {genLayer.isEvaluating ? "Processing Consensus..." : "Initiate Validator Consensus"}
-                            </button>
+                            <div className="flex gap-4">
+                              <button 
+                                onClick={() => handleEvaluate(prop.proposal_id)}
+                                disabled={genLayer.isEvaluating}
+                                className="flex-1 px-10 py-5 bg-[var(--text-main)] text-[var(--bg-secondary)] hover:bg-[var(--card-dark)] flex items-center justify-center gap-4 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50 hover:-translate-y-1"
+                              >
+                                {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                {genLayer.isEvaluating ? "Processing..." : "Initiate Consensus"}
+                              </button>
+                              <button 
+                                onClick={() => genLayer.revokeProposal(prop.proposal_id)}
+                                disabled={genLayer.isEvaluating}
+                                className="px-6 py-5 border border-red-500 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center gap-4 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50 hover:-translate-y-1"
+                              >
+                                {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                                Revoke
+                              </button>
+                            </div>
                             
                             <div className="mt-4 border border-[var(--border-light)] p-6 bg-[var(--bg-primary)] flex flex-col sm:flex-row gap-4 items-end">
                               <div className="flex-grow w-full">
@@ -240,6 +257,36 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                 ))}
               </AnimatePresence>
             )}
+          </div>
+
+          {/* ADMIN OPERATIONS PANEL */}
+          <div className="mt-12 brutalist-border bg-[var(--bg-secondary)] p-8">
+            <h3 className="font-display font-bold text-2xl uppercase tracking-tighter text-[var(--text-main)] mb-6 pb-4 border-b border-[var(--text-main)] flex items-center gap-2">
+              System Admin Tools
+            </h3>
+            
+            <div className="flex flex-wrap gap-4 mb-8">
+              <button onClick={async () => setAdminOutput(await genLayer.healthCheck())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Health Check</button>
+              <button onClick={async () => setAdminOutput(await genLayer.getContractVersion())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Version</button>
+              <button onClick={async () => setAdminOutput(await genLayer.getDeveloperMetadata())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Dev Metadata</button>
+              <button onClick={async () => setAdminOutput(await genLayer.exportSnapshot(0, 100))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">State Snapshot</button>
+            </div>
+
+            <div className="flex flex-col gap-4 mb-8 border-t border-dashed border-[var(--text-main)] pt-6">
+              <div className="flex gap-4 items-end">
+                <div className="flex-grow">
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Param Input (Node ID or Proposal ID)</label>
+                  <input type="text" value={adminInput} onChange={e => setAdminInput(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none" placeholder="Enter ID..." />
+                </div>
+                <button onClick={async () => setAdminOutput(await genLayer.simulateDefault(adminInput))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Simulate Default</button>
+                <button onClick={async () => setAdminOutput(String(await genLayer.verifyNodeCompliance(adminInput)))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Verify Node</button>
+              </div>
+            </div>
+
+            <div className="bg-[var(--bg-primary)] p-4 border border-[var(--border-light)] min-h-[100px] overflow-auto">
+              <span className="font-mono text-[10px] text-[var(--text-muted)] block mb-2 uppercase">Console Output:</span>
+              <pre className="font-mono text-xs text-[var(--text-main)] whitespace-pre-wrap">{adminOutput || "Awaiting command..."}</pre>
+            </div>
           </div>
         </div>
       </div>

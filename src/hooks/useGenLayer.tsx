@@ -15,6 +15,7 @@ export interface ProposalState {
   state: 'PENDING_VERIFICATION' | 'APPROVED' | 'REJECTED' | 'REPAID' | 'REVOKED' | 'FLAGGED';
   validator_notes: string;
   risk_score: number;
+  vouch_score: number;
   collateral: string;
   debt: string;
 }
@@ -436,6 +437,94 @@ export const useGenLayer = () => {
       }
   };
 
+  const revokeProposal = async (proposal_id: string) => {
+      if (!contractAddress) return;
+      setIsEvaluating(true);
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'revoke_proposal',
+              args: [proposal_id]
+          });
+          addTx({ hash, type: 'revoke_proposal', proposal_id, status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to revoke: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  // -------------------------------------------------------------------------
+  // ADMIN & METADATA READ ENDPOINTS
+  // -------------------------------------------------------------------------
+
+  const simulateDefault = async (proposal_id: string) => {
+      if (!contractAddress) return "0.0";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'simulate_loan_default_probability', args: [proposal_id] });
+      } catch (e) {
+          return "Error fetching simulation";
+      }
+  };
+
+  const healthCheck = async () => {
+      if (!contractAddress) return "Not connected";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'perform_health_check', args: [] });
+      } catch (e) {
+          return "Health check failed";
+      }
+  };
+
+  const exportSnapshot = async (offset: number, limit: number) => {
+      if (!contractAddress) return "Not connected";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'export_state_snapshot', args: [offset, limit] });
+      } catch (e) {
+          return "Snapshot export failed";
+      }
+  };
+
+  const getContractVersion = async () => {
+      if (!contractAddress) return "Unknown";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'get_contract_version', args: [] });
+      } catch (e) {
+          return "Unknown";
+      }
+  };
+
+  const getDeveloperMetadata = async () => {
+      if (!contractAddress) return "Unknown";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'get_developer_metadata', args: [] });
+      } catch (e) {
+          return "Unknown";
+      }
+  };
+
+  const verifyNodeCompliance = async (node_id: string) => {
+      if (!contractAddress) return false;
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'verify_node_compliance', args: [node_id] });
+      } catch (e) {
+          return false;
+      }
+  };
+
   return {
     address,
     isConnected,
@@ -453,7 +542,14 @@ export const useGenLayer = () => {
     evaluateProposal,
     arbitrateDispute,
     aiVouch,
+    revokeProposal,
     repayLoan,
+    simulateDefault,
+    healthCheck,
+    exportSnapshot,
+    getContractVersion,
+    getDeveloperMetadata,
+    verifyNodeCompliance,
     network,
     setNetwork,
     networkName,

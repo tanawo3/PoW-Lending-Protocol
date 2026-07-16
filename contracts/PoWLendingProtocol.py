@@ -420,7 +420,9 @@ class PoWLendingProtocol(gl.Contract):
                 "pow_submission": p.pow_submission,
                 "status": p.status,
                 "ai_reasoning": p.ai_reasoning,
+                "validator_notes": getattr(p, "validator_notes", ""),
                 "risk_score": int(p.risk_score),
+                "vouch_score": int(getattr(p, "vouch_score", 0)),
                 "collateral": str(int(getattr(p, "collateral", 0))),
                 "debt": str(int(getattr(p, "debt", 0)))
             })
