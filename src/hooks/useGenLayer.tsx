@@ -845,7 +845,9 @@ export const useGenLayer = () => {
     network,
     setNetwork,
     networkName,
-    setError
+    setError,
+    setContractAddress,
+    isDeploying
   };
 };
 
