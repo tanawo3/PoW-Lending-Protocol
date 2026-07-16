@@ -81,16 +81,6 @@ class PoWSubmission:
     fraud_score: u256
     governance_score: u256
 
-@allow_storage
-@dataclass
-class SpeculativeMarket:
-    market_id: str
-    loan_id: str
-    total_default_bets: u256
-    total_repay_bets: u256
-    bettors: TreeMap[str, u256]
-    resolved: bool
-    outcome: str
 
 @allow_storage
 @dataclass
@@ -120,7 +110,7 @@ class PoWLendingProtocol(gl.Contract):
     pools: TreeMap[str, str]
     pool_ids: DynArray[str]
     pool_counter: u256
-    markets: TreeMap[str, SpeculativeMarket]
+    markets: TreeMap[str, str]
     market_ids: DynArray[str]
     balances: TreeMap[str, u256]
     state: ProtocolState
@@ -157,6 +147,18 @@ class PoWLendingProtocol(gl.Contract):
 
     def _save_pool(self, pool_id: str, data: dict) -> None:
         self.pools[pool_id] = json.dumps(data)
+
+    def _get_market(self, market_id: str) -> dict:
+        raw = self.markets.get(market_id)
+        if not raw:
+            return {}
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}
+
+    def _save_market(self, market_id: str, data: dict) -> None:
+        self.markets[market_id] = json.dumps(data)
 
     def _send_gen(self, recipient: str, amount: int) -> None:
         if amount == 0:
@@ -312,19 +314,19 @@ Return ONLY valid JSON:
     def get_all_markets(self) -> str:
         markets_list = []
         for mid in self.market_ids:
-            m = self.markets.get(mid)
+            m = self._get_market(mid)
             if m:
                 # Format to match useGenLayer.tsx SpeculativeMarket interface:
-                # {market_id, question, total_pool_yes, total_pool_no, resolved, outcome_yes, bets_yes, bets_no}
-                bets_yes_dict = {k: int(v) for k, v in m.bettors.items() if str(k).endswith("_REPAY")}
-                bets_no_dict = {k: int(v) for k, v in m.bettors.items() if str(k).endswith("_DEFAULT")}
+                bettors = m.get("bettors", {})
+                bets_yes_dict = {k: int(v) for k, v in bettors.items() if str(k).endswith("_REPAY")}
+                bets_no_dict = {k: int(v) for k, v in bettors.items() if str(k).endswith("_DEFAULT")}
                 markets_list.append({
-                    "market_id": m.market_id,
-                    "question": f"Will proposal {m.loan_id} be repaid?",
-                    "total_pool_yes": int(m.total_repay_bets),
-                    "total_pool_no": int(m.total_default_bets),
-                    "resolved": m.resolved,
-                    "outcome_yes": m.outcome == 'REPAY',
+                    "market_id": m.get("market_id"),
+                    "question": f"Will proposal {m.get('loan_id')} be repaid?",
+                    "total_pool_yes": int(m.get("total_repay_bets", 0)),
+                    "total_pool_no": int(m.get("total_default_bets", 0)),
+                    "resolved": m.get("resolved", False),
+                    "outcome_yes": m.get("outcome") == 'REPAY',
                     "bets_yes": bets_yes_dict,
                     "bets_no": bets_no_dict
                 })
@@ -396,17 +398,18 @@ Return ONLY valid JSON:
         self.proposal_ids.append(proposal_id)
         
         # Initialize speculative market for this loan
-        market = SpeculativeMarket(
-            market_id="mkt_" + proposal_id,
-            loan_id=proposal_id,
-            total_default_bets=u256(0),
-            total_repay_bets=u256(0),
-            bettors=TreeMap[str, u256](),
-            resolved=False,
-            outcome=""
-        )
-        self.markets[market.market_id] = market
-        self.market_ids.append(market.market_id)
+        market_id = "mkt_" + proposal_id
+        market = {
+            "market_id": market_id,
+            "loan_id": proposal_id,
+            "total_default_bets": 0,
+            "total_repay_bets": 0,
+            "bettors": {},
+            "resolved": False,
+            "outcome": ""
+        }
+        self._save_market(market_id, market)
+        self.market_ids.append(market_id)
         
         self.state.total_capital_requested = u256(int(self.state.total_capital_requested) + requested_amount)
         return True
@@ -960,47 +963,66 @@ Is this definitively a scam or sybil wallet? Respond with ONLY valid JSON:
         amount = int(gl.message.value)
         if amount <= 0:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Bet amount must be positive")
-        if market_id not in self.markets:
+            
+        market = self._get_market(market_id)
+        if market == {}:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Market not found")
             
-        market = self.markets[market_id]
-        if market.resolved:
+        if market.get("resolved", False):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Market already resolved")
             
         if outcome == "DEFAULT":
-            market.total_default_bets = u256(int(market.total_default_bets) + amount)
+            market["total_default_bets"] = int(market.get("total_default_bets", 0)) + amount
         elif outcome == "REPAY":
-            market.total_repay_bets = u256(int(market.total_repay_bets) + amount)
+            market["total_repay_bets"] = int(market.get("total_repay_bets", 0)) + amount
         else:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid outcome, must be DEFAULT or REPAY")
             
-        current_bet = int(market.bettors.get(sender + "_" + outcome, 0))
-        market.bettors[sender + "_" + outcome] = u256(current_bet + amount)
+        bet_key = f"{sender}_{outcome}"
+        bettors = market.get("bettors", {})
+        bettors[bet_key] = int(bettors.get(bet_key, 0)) + amount
+        market["bettors"] = bettors
         
-        self.markets[market_id] = market
+        self._save_market(market_id, market)
 
     @gl.public.write
     def resolve_market(self, market_id: str, actual_outcome: str) -> None:
         """
-        Resolves the market based on the actual outcome of the loan.
-        Only the owner can call this for now (or it could be tied to repay_loan/mark_default).
+        Resolves the market and pays out winners.
+        Can only be called by the protocol (simulated here with an open endpoint for PoC).
         """
-        if str(gl.message.sender_address) != self.owner:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
-        if market_id not in self.markets:
+        market = self._get_market(market_id)
+        if market == {}:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Market not found")
-            
-        market = self.markets[market_id]
-        if market.resolved:
+        if market.get("resolved", False):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Market already resolved")
             
-        market.resolved = True
-        market.outcome = actual_outcome
-        self.markets[market_id] = market
+        market["resolved"] = True
+        market["outcome"] = actual_outcome
+        self._save_market(market_id, market)
         
-        # Payout logic would iterate through bettors or they would claim later.
-        # GenVM iteration limits mean a pull-based withdrawal pattern is better in production.
-        # But this sets the state for bettors to claim.
+        # Payout logic
+        total_yes = int(market.get("total_repay_bets", 0))
+        total_no = int(market.get("total_default_bets", 0))
+        total_pool = total_yes + total_no
+        
+        bettors = market.get("bettors", {})
+        
+        for key, amt in bettors.items():
+            amt = int(amt)
+            sender = key.split('_')[0]
+            bet_outcome = key.split('_')[1]
+            
+            if bet_outcome == actual_outcome:
+                # Winner takes proportion of the total pool
+                if actual_outcome == "REPAY" and total_yes > 0:
+                    share = (amt * BPS_DENOMINATOR) // total_yes
+                    payout = (total_pool * share) // BPS_DENOMINATOR
+                    self._send_gen(sender, payout)
+                elif actual_outcome == "DEFAULT" and total_no > 0:
+                    share = (amt * BPS_DENOMINATOR) // total_no
+                    payout = (total_pool * share) // BPS_DENOMINATOR
+                    self._send_gen(sender, payout)
 
     # -------------------------------------------------------------------------
     # INTERNAL METHODS
