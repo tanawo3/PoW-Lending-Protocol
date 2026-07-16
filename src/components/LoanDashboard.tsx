@@ -288,10 +288,12 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                           <div className={`px-4 py-2 font-mono text-[10px] tracking-widest uppercase flex items-center gap-2 border
                             ${prop.status === 'PENDING' ? 'border-[var(--text-main)] text-[var(--text-main)] bg-[var(--bg-primary)]' : 
                               prop.status === 'APPROVED' ? 'bg-[var(--card-dark)] text-[var(--bg-secondary)] border-[var(--card-dark)]' : 
+                              prop.status === 'DEFAULTED' ? 'bg-red-900/30 text-red-500 border-red-500' :
                               'bg-[var(--bg-primary)] text-[var(--text-muted)] border-[var(--border-light)]'}`}>
                             {prop.status === 'PENDING' && <RefreshCw className="w-3 h-3 animate-spin" />}
                             {prop.status === 'COMMITTED' && <RefreshCw className="w-3 h-3" />}
                             {prop.status === 'APPROVED' && <CheckCircle className="w-3 h-3" />}
+                            {prop.status === 'DEFAULTED' && <XCircle className="w-3 h-3 text-red-500" />}
                             {prop.status === 'CONDITIONAL_OFFER' && <RefreshCw className="w-3 h-3" />}
                             {prop.status === 'REJECTED' && <XCircle className="w-3 h-3" />}
                             {prop.status.replace('_', ' ')}
@@ -412,13 +414,23 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                             )}
                             
                             {prop.status === 'APPROVED' && (
-                              <button 
-                                onClick={() => genLayer.repayLoan(prop.proposal_id, BigInt(prop.debt || 0))}
-                                disabled={genLayer.isEvaluating}
-                                className="w-full sm:w-auto self-start mt-4 px-6 py-3 bg-[var(--bg-primary)] border border-[var(--text-main)] text-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50"
-                              >
-                                {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Repay Loan & Debt"}
-                              </button>
+                              <div className="flex flex-col sm:flex-row gap-4 mt-4">
+                                <button 
+                                  onClick={() => genLayer.repayLoan(prop.proposal_id, BigInt(prop.debt || 0))}
+                                  disabled={genLayer.isEvaluating}
+                                  className="w-full sm:w-auto self-start px-6 py-3 bg-[var(--bg-primary)] border border-[var(--text-main)] text-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50"
+                                >
+                                  {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Repay Loan & Interest"}
+                                </button>
+                                
+                                <button 
+                                  onClick={() => genLayer.markDefault(prop.proposal_id)}
+                                  disabled={genLayer.isEvaluating}
+                                  className="w-full sm:w-auto self-start px-6 py-3 bg-red-900/20 border border-red-500 text-red-500 hover:bg-red-900 hover:text-white flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50"
+                                >
+                                  {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Mark as Default (Admin)"}
+                                </button>
+                              </div>
                             )}
                             
                             <div className="mt-6 pt-6 border-t border-[var(--border-light)] flex flex-col gap-4">

@@ -703,13 +703,26 @@ export const useGenLayer = () => {
       }
   };
 
-  const simulateDefault = async (proposal_id: string) => {
-      if (!contractAddress) return "0.0";
+  const markDefault = async (proposal_id: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
       try {
-          const client = getGenLayerClient(network, address);
-          return await (client as any).readContract({ address: contractAddress, functionName: 'simulate_loan_default_probability', args: [proposal_id] });
-      } catch (e) {
-          return "Error fetching simulation";
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'mark_default',
+              args: [proposal_id]
+          });
+          addTx({ hash, type: 'mark_default', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+      } catch (e: any) {
+          setError("Failed to mark default: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
       }
   };
 
@@ -880,6 +893,7 @@ export const useGenLayer = () => {
     submitIdentityVerification,
     acceptConditionalOffer,
     withdrawProtocolFees,
+    markDefault,
     simulateDefault,
     healthCheck,
     exportSnapshot,

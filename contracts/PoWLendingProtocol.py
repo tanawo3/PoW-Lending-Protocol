@@ -883,6 +883,44 @@ Output a JSON with exactly two fields:
         return True
 
     @gl.public.write
+    def mark_default(self, proposal_id: str) -> bool:
+        """
+        Allows the owner/admin to mark a loan as defaulted if repayment is overdue.
+        This triggers a massive penalty to the borrower's trust score.
+        """
+        if str(gl.message.sender_address) != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+            
+        if proposal_id not in self.proposals:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal not found")
+            
+        prop = self.proposals[proposal_id]
+        
+        if prop.status != "APPROVED":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Loan is not actively funded")
+            
+        prop.status = "DEFAULTED"
+        prop.ai_reasoning = "Loan marked as DEFAULTED by admin due to non-repayment. Severe trust penalty applied."
+        self.proposals[proposal_id] = prop
+        
+        # Apply massive penalty to borrower's reputation
+        borrower_profile = self._get_borrower(prop.borrower)
+        # Drop wallet_trust_score to 0
+        borrower_profile["wallet_trust_score"] = 0
+        self._save_borrower(prop.borrower, borrower_profile)
+        
+        # If it was tied to a pool, we should update the pool stats
+        pool_id = prop.target_pool_id
+        if pool_id != "" and pool_id is not None:
+            pool = self._get_pool(pool_id)
+            if pool != {}:
+                # Defaulted loans mean the expected return is lost.
+                pool["status"] = "DEFAULT_IMPACTED"
+                self._save_pool(pool_id, pool)
+                
+        return True
+
+    @gl.public.write
     def revoke_proposal(self, proposal_id: str) -> bool:
         """
         Allows an external system or governance module to forcibly revoke 
