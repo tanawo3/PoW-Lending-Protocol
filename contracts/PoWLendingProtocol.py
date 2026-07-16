@@ -76,6 +76,8 @@ class PoWSubmission:
     avg_balance_usd: u256
     encrypted_evidence: str
     plaintext_evidence: str
+    vouchers_json: str
+    appeal_history_json: str
     created_at: u256
     last_updated: u256
     expires_at: u256
@@ -114,6 +116,7 @@ class PoWLendingProtocol(gl.Contract):
     markets: TreeMap[str, str]
     market_ids: DynArray[str]
     balances: TreeMap[str, u256]
+    borrowers: TreeMap[str, str]
     state: ProtocolState
     owner: str
 
@@ -142,6 +145,13 @@ class PoWLendingProtocol(gl.Contract):
             return json.loads(raw)
         except:
             return fallback
+
+    def _get_borrower(self, address: str) -> dict:
+        raw = self.borrowers.get(address, "")
+        return self._loads(raw, {})
+
+    def _save_borrower(self, address: str, profile: dict) -> None:
+        self.borrowers[address] = json.dumps(profile)
 
     def _get_pool(self, pool_id: str) -> dict:
         return self._loads(self.pools.get(pool_id), {})
@@ -178,26 +188,33 @@ class PoWLendingProtocol(gl.Contract):
         self._send_gen(self.owner, amount)
 
     @gl.public.write
-    def submit_identity_verification(self, document_hash: str, selfie_hash: str) -> bool:
+    def submit_identity_verification(self, document_hash: str, selfie_hash: str, proof_of_address_hash: str) -> bool:
         borrower = str(gl.message.sender_address)
         profile = self._get_borrower(borrower)
         profile["kyc_status"] = "UNDER_REVIEW"
+        profile["identity_documents"] = {
+            "document_hash": document_hash,
+            "selfie_hash": selfie_hash,
+            "proof_of_address_hash": proof_of_address_hash,
+            "submitted_at": self._now()
+        }
         self._save_borrower(borrower, profile)
 
         def leader_fn() -> dict:
             prompt = f"""You are a KYC AI Oracle.
 DOCUMENT HASH: {document_hash}
 SELFIE HASH: {selfie_hash}
+PROOF OF ADDRESS HASH: {proof_of_address_hash}
 Evaluate the hashes to verify the borrower's identity.
 Return ONLY valid JSON:
 {{
   "kyc_status": "VERIFIED",
-  "identity_score": 850
+  "identity_score": 8500
 }}"""
             res = gl.nondet.exec_prompt(prompt, response_format="json")
             if isinstance(res, dict):
                 return res
-            return {"kyc_status": "VERIFIED", "identity_score": 850}
+            return {"kyc_status": "VERIFIED", "identity_score": 8500}
 
         def validator_fn(leader_res: gl.vm.Result) -> bool:
             if not isinstance(leader_res, gl.vm.Return):
@@ -205,13 +222,13 @@ Return ONLY valid JSON:
             try:
                 mine = leader_fn()
                 ld_data = leader_res.calldata
-                return mine["kyc_status"] == ld_data.get("kyc_status", "")
+                return mine.get("kyc_status", "") == ld_data.get("kyc_status", "")
             except gl.vm.UserError:
                 return False
 
         decision = gl.vm.run_nondet(leader_fn, validator_fn)
         profile["kyc_status"] = decision.get("kyc_status", "VERIFIED")
-        profile["identity_score"] = int(decision.get("identity_score", 850))
+        profile["identity_score"] = int(decision.get("identity_score", 8500))
         self._save_borrower(borrower, profile)
         return True
 
@@ -460,8 +477,10 @@ Output a JSON with exactly two fields:
             avg_balance_usd=u256(avg_balance_usd),
             encrypted_evidence="",
             plaintext_evidence="",
-            created_at=u256(0), # Epoch 0
-            last_updated=u256(0),
+            vouchers_json="{}",
+            appeal_history_json="[]",
+            created_at=u256(self._now()),
+            last_updated=u256(self._now()),
             expires_at=u256(0), # No expiry yet
             fraud_score=u256(0),
             governance_score=u256(0)
@@ -720,6 +739,15 @@ Output a JSON with exactly two fields:
                 
         decision = gl.vm.run_nondet(leader_fn, validator_fn)
         
+        appeal_hist = self._loads(prop.appeal_history_json, [])
+        appeal_hist.append({
+            "dispute_evidence": dispute_evidence,
+            "verdict": decision["verdict"],
+            "summary": decision["summary"],
+            "timestamp": self._now()
+        })
+        prop.appeal_history_json = json.dumps(appeal_hist)
+        
         prop.validator_notes = decision["summary"]
         if decision["verdict"] == "OVERTURN":
             loan_amount = int(prop.requested_amount)
@@ -787,8 +815,24 @@ Output a JSON with exactly two fields:
         decision = gl.vm.run_nondet(leader_fn, validator_fn)
         
         quality = decision["vouch_quality_bps"]
+        
+        voucher_profile = self._get_borrower(voucher)
+        voucher_identity_score = int(voucher_profile.get("identity_score", 1000))
+        weighted_quality = int((quality * voucher_identity_score) / 10000)
+        
+        vouchers = self._loads(prop.vouchers_json, {})
+        if voucher in vouchers:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Already vouched")
+            
+        vouchers[voucher] = {
+            "rationale": rationale,
+            "quality": weighted_quality,
+            "timestamp": self._now()
+        }
+        prop.vouchers_json = json.dumps(vouchers)
+        
         current_vouch = int(prop.vouch_score)
-        prop.vouch_score = u256(current_vouch + quality)
+        prop.vouch_score = u256(current_vouch + weighted_quality)
         self.proposals[proposal_id] = prop
         return True
 
@@ -890,9 +934,24 @@ Output a JSON with exactly two fields:
                 "vouch_score": int(getattr(p, "vouch_score", 0)),
                 "collateral": str(int(getattr(p, "collateral", 0))),
                 "debt": str(int(getattr(p, "debt", 0))),
-                "pool_id": getattr(p, "pool_id", "")
+                "pool_id": getattr(p, "pool_id", ""),
+                "vouchers_json": getattr(p, "vouchers_json", "{}"),
+                "appeal_history_json": getattr(p, "appeal_history_json", "[]")
             })
         return json.dumps(out)
+
+    @gl.public.read
+    def get_borrower_profile(self, address: str) -> str:
+        prof = self._get_borrower(address)
+        prof["kyc_status"] = prof.get("kyc_status", "NONE")
+        prof["identity_score"] = prof.get("identity_score", 0)
+        prof["completed_loans"] = prof.get("completed_loans", 0)
+        prof["late_payments"] = prof.get("late_payments", 0)
+        prof["defaults"] = prof.get("defaults", 0)
+        prof["repayment_score"] = prof.get("repayment_score", 100)
+        prof["fraud_risk_score"] = prof.get("fraud_risk_score", "LOW")
+        prof["governance_score"] = prof.get("governance_score", 0)
+        return json.dumps(prof)
 
     # -------------------------------------------------------------------------
     # ENTERPRISE AUDIT & METADATA MODULE

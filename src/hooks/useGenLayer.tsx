@@ -24,6 +24,8 @@ export interface ProposalState {
   debt: string;
   pool_id: string;
   encrypted_data?: Record<string, EncryptedEvidence>;
+  vouchers_json: string;
+  appeal_history_json: string;
 }
 
 export interface EncryptedEvidence {
@@ -634,7 +636,7 @@ export const useGenLayer = () => {
       }
   };
 
-  const submitIdentityVerification = async (documentHash: string, selfieHash: string) => {
+  const submitIdentityVerification = async (documentHash: string, selfieHash: string, proofOfAddressHash: string) => {
       if (!contractAddress) return;
       setError(null);
       setIsEvaluating(true);
@@ -645,7 +647,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_identity_verification',
-              args: [documentHash, selfieHash]
+              args: [documentHash, selfieHash, proofOfAddressHash]
           });
           addTx({ hash, type: 'submit_identity_verification', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });

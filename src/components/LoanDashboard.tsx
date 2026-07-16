@@ -12,6 +12,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [daoVotes, setDaoVotes] = useState('');
   const [documentHash, setDocumentHash] = useState('doc_' + Math.random().toString(36).substring(7));
   const [selfieHash, setSelfieHash] = useState('selfie_' + Math.random().toString(36).substring(7));
+  const [proofOfAddressHash, setProofOfAddressHash] = useState('poa_' + Math.random().toString(36).substring(7));
   const [walletAgeDays, setWalletAgeDays] = useState('365');
   const [totalTx, setTotalTx] = useState('50');
   const [avgBalance, setAvgBalance] = useState('1500');
@@ -107,6 +108,10 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
               <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">KYC Status</span>
               <div className="font-display font-bold text-2xl mt-2">{borrowerProfile.kyc_status}</div>
             </div>
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">Identity Score</span>
+              <div className="font-display font-bold text-4xl text-green-400">{borrowerProfile.identity_score}</div>
+            </div>
           </div>
           
           {borrowerProfile.kyc_status === 'NONE' && (
@@ -119,8 +124,12 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                 <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60 block mb-2">Simulated Selfie Hash</span>
                 <input type="text" readOnly value={selfieHash} className="w-full bg-transparent border-b border-[var(--bg-primary)]/30 py-2 text-sm text-[var(--bg-primary)] focus:outline-none" />
               </div>
+              <div className="flex-1">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60 block mb-2">Simulated PoA Hash</span>
+                <input type="text" readOnly value={proofOfAddressHash} className="w-full bg-transparent border-b border-[var(--bg-primary)]/30 py-2 text-sm text-[var(--bg-primary)] focus:outline-none" />
+              </div>
               <button 
-                onClick={() => genLayer.submitIdentityVerification(documentHash, selfieHash)}
+                onClick={() => genLayer.submitIdentityVerification(documentHash, selfieHash, proofOfAddressHash)}
                 disabled={genLayer.isEvaluating}
                 className="px-6 py-2 border border-[var(--bg-primary)] text-[var(--bg-primary)] hover:bg-[var(--bg-primary)] hover:text-[var(--text-main)] font-mono text-xs tracking-widest uppercase transition-colors"
               >
@@ -287,10 +296,15 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                             ${prop.requested_amount}
                           </div>
                           {prop.vouch_score > 0 && (
-                            <div className="font-mono text-[10px] uppercase text-[var(--text-main)] mt-1 px-2 py-1 border border-[var(--text-main)]">
-                              Vouch XP: {prop.vouch_score}
-                            </div>
-                          )}
+                          <div className="mt-4 border-t border-[var(--border-light)] pt-4">
+                            <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] block mb-2">Social Vouching (Total XP: {prop.vouch_score})</span>
+                            {Object.entries(JSON.parse(prop.vouchers_json || '{}')).map(([voucher, data]: [string, any]) => (
+                              <div key={voucher} className="text-xs font-mono text-[var(--text-main)] mb-1">
+                                <span className="text-[var(--text-muted)]">[{data.timestamp}]</span> {voucher.substring(0,8)}... : <span className="text-green-500">+{data.quality} XP</span> - "{data.rationale}"
+                              </div>
+                            ))}
+                          </div>
+                        )}
                           {prop.status === 'APPROVED' && prop.debt && (
                             <div className="font-mono text-[10px] uppercase text-[var(--text-main)] mt-1">
                               Repay: ${prop.debt} ({(prop.risk_score / 100).toFixed(2)}% Premium)
@@ -354,6 +368,19 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                               </div>
                             </div>
                             
+                            {prop.appeal_history_json && JSON.parse(prop.appeal_history_json).length > 0 && (
+                              <div className="mt-4 border-t border-[var(--border-light)] pt-4">
+                                <span className="font-mono text-[10px] uppercase tracking-widest text-red-500 block mb-2">Appeal History Timeline</span>
+                                {JSON.parse(prop.appeal_history_json).map((appeal: any, idx: number) => (
+                                  <div key={idx} className="text-xs font-mono mb-2 p-3 bg-black/20 border border-[var(--border-light)] rounded-none">
+                                    <div className="text-red-400">[{appeal.timestamp}] Evidence: {appeal.dispute_evidence}</div>
+                                    <div className="mt-1 font-bold">Verdict: {appeal.verdict}</div>
+                                    <div className="mt-1 text-[var(--text-muted)] italic">"{appeal.summary}"</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
                             {prop.status === 'REJECTED' && (
                               <div className="mt-4 border border-red-900/30 p-6 bg-[var(--bg-primary)] flex flex-col gap-4">
                                 <div>
