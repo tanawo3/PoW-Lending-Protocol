@@ -299,7 +299,7 @@ Return ONLY valid JSON:
         self._save_pool(pool_id, pool)
         self._send_gen(sender, amount)
 
-    @gl.public.read
+    @gl.public.view
     def get_all_pools(self) -> str:
         pools = []
         for pid in self.pool_ids:
@@ -308,7 +308,7 @@ Return ONLY valid JSON:
                 pools.append(pool)
         return json.dumps(pools)
 
-    @gl.public.read
+    @gl.public.view
     def get_all_markets(self) -> str:
         markets_list = []
         for mid in self.market_ids:
