@@ -940,7 +940,7 @@ Output a JSON with exactly two fields:
             })
         return json.dumps(out)
 
-    @gl.public.read
+    @gl.public.view
     def get_borrower_profile(self, address: str) -> str:
         prof = self._get_borrower(address)
         prof["kyc_status"] = prof.get("kyc_status", "NONE")
