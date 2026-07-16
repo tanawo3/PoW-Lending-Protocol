@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+﻿import React, { useEffect } from 'react';
 import { Wallet, Hexagon, XCircle, RefreshCw } from 'lucide-react';
 import { useGenLayer } from './hooks/useGenLayer';
 import { useSoundEffect } from './hooks/useSoundEffect';
@@ -260,5 +260,3 @@ export default function App() {
     </div>
   );
 }
-/ /   T r i g g e r   V e r c e l   B u i l d  
- 

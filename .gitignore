@@ -11,3 +11,4 @@ wallets.json
 *.zip
 
 .env
+.vercel
