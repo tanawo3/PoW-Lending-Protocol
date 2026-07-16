@@ -5,6 +5,7 @@ import { useSoundEffect } from './hooks/useSoundEffect';
 import { InitializationView } from './components/InitializationView';
 import { LoanDashboard } from './components/LoanDashboard';
 import { PoolDashboard } from './components/PoolDashboard';
+import { MarketDashboard } from './components/MarketDashboard';
 import { SplitText } from './components/SplitText';
 import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
@@ -242,6 +243,8 @@ export default function App() {
                   <LoanDashboard genLayer={genLayer} />
                   
                   <PoolDashboard genLayer={genLayer} />
+                  
+                  <MarketDashboard genLayer={genLayer} />
                 </div>
 
                 {/* Zomoroda Stacking Cards */}

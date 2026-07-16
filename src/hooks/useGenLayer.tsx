@@ -12,12 +12,48 @@ export interface ProposalState {
   borrower: string;
   requested_amount: number;
   pow_submission: string;
-  state: 'PENDING_VERIFICATION' | 'APPROVED' | 'REJECTED' | 'REPAID' | 'REVOKED' | 'FLAGGED';
+  status: 'PENDING' | 'PENDING_VERIFICATION' | 'APPROVED' | 'REJECTED' | 'REPAID' | 'REVOKED' | 'FLAGGED' | 'CONDITIONAL_OFFER';
+  ai_reasoning: string;
   validator_notes: string;
   risk_score: number;
   vouch_score: number;
+  wallet_trust_score: number;
+  income_score: number;
+  reputation_score: number;
   collateral: string;
   debt: string;
+  pool_id: string;
+  encrypted_data?: Record<string, EncryptedEvidence>;
+}
+
+export interface EncryptedEvidence {
+  evidence_id: string;
+  provider: string;
+  zk_proof_hash: string;
+  is_verified: boolean;
+  decrypted_data: string | null;
+}
+
+export interface SpeculativeMarket {
+  market_id: string;
+  question: string;
+  total_pool_yes: number;
+  total_pool_no: number;
+  resolved: boolean;
+  outcome_yes: boolean;
+  bets_yes: Record<string, number>;
+  bets_no: Record<string, number>;
+}
+
+export interface BorrowerProfile {
+  completed_loans: number;
+  late_payments: number;
+  defaults: number;
+  repayment_score: number;
+  fraud_risk_score: string;
+  kyc_status: string;
+  identity_score: number;
+  governance_score: number;
 }
 
 export interface PoolState {
@@ -35,7 +71,7 @@ export interface PoolState {
 
 export interface GenTx {
   hash: string;
-  type: 'deploy' | 'submit_proposal' | 'evaluate_proposal' | 'repay_loan' | 'revoke_proposal' | 'arbitrate_dispute' | 'ai_vouch' | 'create_pool' | 'deposit_liquidity' | 'withdraw_liquidity';
+  type: 'deploy' | 'submit_proposal' | 'evaluate_proposal' | 'repay_loan' | 'revoke_proposal' | 'appeal_loan_decision' | 'ai_vouch' | 'create_pool' | 'deposit_liquidity' | 'withdraw_liquidity' | 'submit_identity_verification' | 'accept_conditional_offer' | 'withdraw_protocol_fees' | 'submit_encrypted_evidence' | 'reveal_agreement' | 'place_bet' | 'resolve_market';
   proposal_id?: string;
   status: 'pending' | 'success' | 'failed';
   error?: string;
@@ -132,6 +168,7 @@ export const useGenLayer = () => {
   
   const [proposals, setProposals] = useState<ProposalState[]>([]);
   const [pools, setPools] = useState<PoolState[]>([]);
+  const [markets, setMarkets] = useState<SpeculativeMarket[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<GenTx[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -260,6 +297,17 @@ export const useGenLayer = () => {
             const parsedPools = JSON.parse(poolsResult as string);
             setPools(parsedPools);
         }
+        
+        const marketsResult = await (client as any).readContract({
+            address: contractAddress,
+            functionName: 'get_all_markets',
+            args: []
+        });
+        
+        if (marketsResult) {
+            const parsedMarkets = JSON.parse(marketsResult as string);
+            setMarkets(parsedMarkets);
+        }
     } catch (e: any) {
         const errorMsg = (e?.message || e?.shortMessage || e?.details || String(e) || '').toLowerCase();
         const isNotFound = errorMsg.includes("not found") || errorMsg.includes("resource not found") || errorMsg.includes("404") || errorMsg.includes("no contract") || errorMsg.includes("execution failed") || errorMsg.includes("missing or invalid");
@@ -273,7 +321,7 @@ export const useGenLayer = () => {
     }
   }, [contractAddress, address, network, networkName]);
   
-  const submitProposal = async (proposal_id: string, borrower: string, requested_amount: number, pow_submission: string, value: bigint) => {
+  const submitProposal = async (proposal_id: string, requested_amount: number, pow_submission: string, wallet_age_days: number, total_transactions: number, avg_balance_usd: number, value: bigint) => {
       if (!contractAddress) return;
       setError(null);
 
@@ -293,7 +341,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_proposal',
-              args: [proposal_id, borrower, requested_amount, pow_submission],
+              args: [proposal_id, address, requested_amount, pow_submission, wallet_age_days, total_transactions, avg_balance_usd],
               value: value
           });
           
@@ -311,6 +359,20 @@ export const useGenLayer = () => {
       } catch (e: any) {
           setError("Failed to send submit_proposal transaction: " + stripErrorPrefix(e.message));
       }
+  };
+
+  const getBorrowerProfile = async (borrowerAddr: string): Promise<BorrowerProfile | null> => {
+      if (!contractAddress || !borrowerAddr) return null;
+      try {
+          const client = getGenLayerClient(network, address);
+          const result = await (client as any).readContract({ address: contractAddress, functionName: 'get_borrower_profile', args: [borrowerAddr] });
+          if (result) {
+              return JSON.parse(result as string) as BorrowerProfile;
+          }
+      } catch (e) {
+          return null;
+      }
+      return null;
   };
 
   const evaluateProposal = async (proposal_id: string) => {
@@ -380,7 +442,7 @@ export const useGenLayer = () => {
       }
   };
 
-  const arbitrateDispute = async (proposal_id: string, evidence: string) => {
+  const appealLoanDecision = async (proposal_id: string, evidence: string) => {
       if (!contractAddress) return;
       setIsEvaluating(true);
       setError(null);
@@ -390,15 +452,15 @@ export const useGenLayer = () => {
           const hash = await (client as any).writeContract({
               address: contractAddress,
               account: address ? { address } : undefined,
-              functionName: 'arbitrate_dispute',
+              functionName: 'appeal_loan_decision',
               args: [proposal_id, evidence]
           });
-          addTx({ hash, type: 'arbitrate_dispute', proposal_id, status: 'pending', timestamp: Date.now() });
+          addTx({ hash, type: 'appeal_loan_decision', proposal_id, status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
-          setError("Arbitration failed: " + stripErrorPrefix(e.message));
+          setError("Appeal failed: " + stripErrorPrefix(e.message));
       } finally {
           setIsEvaluating(false);
       }
@@ -452,9 +514,145 @@ export const useGenLayer = () => {
       }
   };
 
-  const createPool = async (pool_id: string, asset: string) => { /* implementation */ };
-  const depositLiquidity = async (pool_id: string, amount: bigint) => { /* implementation */ };
-  const withdrawLiquidity = async (pool_id: string, amount: bigint) => { /* implementation */ };
+  const createPool = async (name: string, target_return_bps: number, min_credit_score: number, max_loan_amount_wei: number, risk_tier: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'create_pool',
+              args: [name, target_return_bps, min_credit_score, max_loan_amount_wei, risk_tier]
+          });
+          addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to create pool: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const depositLiquidity = async (pool_id: string, amount: bigint) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'deposit_liquidity',
+              args: [pool_id],
+              value: amount
+          });
+          addTx({ hash, type: 'deposit_liquidity', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Deposit failed: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const withdrawLiquidity = async (pool_id: string, amount: bigint) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'withdraw_liquidity',
+              args: [pool_id, amount]
+          });
+          addTx({ hash, type: 'withdraw_liquidity', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Withdrawal failed: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const submitIdentityVerification = async (documentHash: string, selfieHash: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'submit_identity_verification',
+              args: [documentHash, selfieHash]
+          });
+          addTx({ hash, type: 'submit_identity_verification', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+      } catch (e: any) {
+          setError("Verification failed: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const acceptConditionalOffer = async (proposalId: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'accept_conditional_offer',
+              args: [proposalId]
+          });
+          addTx({ hash, type: 'accept_conditional_offer', proposal_id: proposalId, status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Accepting offer failed: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const withdrawProtocolFees = async (amount: bigint) => {
+      if (!contractAddress) return;
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'withdraw_protocol_fees',
+              args: [amount]
+          });
+          addTx({ hash, type: 'withdraw_protocol_fees', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+      } catch (e: any) {
+          setError("Withdrawal failed: " + stripErrorPrefix(e.message));
+      }
+  };
 
   const simulateDefault = async (proposal_id: string) => {
       if (!contractAddress) return "0.0";
@@ -516,6 +714,97 @@ export const useGenLayer = () => {
       }
   };
 
+  const submitEncryptedEvidence = async (proposal_id: string, evidence_id: string, zk_proof_hash: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'submit_encrypted_evidence',
+              args: [proposal_id, evidence_id, zk_proof_hash]
+          });
+          addTx({ hash, type: 'submit_encrypted_evidence', proposal_id, status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to submit encrypted evidence: " + stripErrorPrefix(e.message));
+      }
+  };
+
+  const revealAgreement = async (proposal_id: string, evidence_id: string) => {
+      if (!contractAddress) return;
+      setIsEvaluating(true);
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'reveal_agreement',
+              args: [proposal_id, evidence_id]
+          });
+          addTx({ hash, type: 'reveal_agreement', proposal_id, status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to reveal agreement: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const placeBet = async (market_id: string, bet_on_yes: boolean, amount: bigint) => {
+      if (!contractAddress) return;
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'place_bet',
+              args: [market_id, bet_on_yes],
+              value: amount
+          });
+          addTx({ hash, type: 'place_bet', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to place bet: " + stripErrorPrefix(e.message));
+      }
+  };
+
+  const resolveMarket = async (market_id: string) => {
+      if (!contractAddress) return;
+      setIsEvaluating(true);
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'resolve_market',
+              args: [market_id]
+          });
+          addTx({ hash, type: 'resolve_market', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to resolve market: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
   return {
     address,
     isConnected,
@@ -530,20 +819,29 @@ export const useGenLayer = () => {
     deployContract,
     fetchProposals,
     submitProposal,
+    getBorrowerProfile,
     evaluateProposal,
     repayLoan,
     revokeProposal,
-    arbitrateDispute,
+    appealLoanDecision,
     aiVouch,
     createPool,
     depositLiquidity,
     withdrawLiquidity,
+    submitIdentityVerification,
+    acceptConditionalOffer,
+    withdrawProtocolFees,
     simulateDefault,
     healthCheck,
     exportSnapshot,
     getContractVersion,
     getDeveloperMetadata,
     verifyNodeCompliance,
+    submitEncryptedEvidence,
+    revealAgreement,
+    placeBet,
+    resolveMarket,
+    markets,
     network,
     setNetwork,
     networkName,

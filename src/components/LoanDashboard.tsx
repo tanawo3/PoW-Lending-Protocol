@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGenLayer } from '../hooks/useGenLayer';
 import { Send, RefreshCw, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,17 +8,47 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [borrower, setBorrower] = useState('');
   const [requestedAmount, setRequestedAmount] = useState('');
   const [powSubmission, setPowSubmission] = useState('');
+  const [githubContributions, setGithubContributions] = useState('');
+  const [daoVotes, setDaoVotes] = useState('');
+  const [documentHash, setDocumentHash] = useState('doc_' + Math.random().toString(36).substring(7));
+  const [selfieHash, setSelfieHash] = useState('selfie_' + Math.random().toString(36).substring(7));
+  const [walletAgeDays, setWalletAgeDays] = useState('365');
+  const [totalTx, setTotalTx] = useState('50');
+  const [avgBalance, setAvgBalance] = useState('1500');
+  const [treasuryBalance, setTreasuryBalance] = useState('0');
   const [collateralAmount, setCollateralAmount] = useState('0');
   const [disputeEvidence, setDisputeEvidence] = useState<{ [id: string]: string }>({});
   const [vouchRationale, setVouchRationale] = useState<{ [id: string]: string }>({});
   const [adminOutput, setAdminOutput] = useState<string>('');
   const [adminInput, setAdminInput] = useState<string>('');
+  const [evidenceId, setEvidenceId] = useState<{ [id: string]: string }>({});
+  const [zkHash, setZkHash] = useState<{ [id: string]: string }>({});
   
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [borrowerProfile, setBorrowerProfile] = useState<any>(null);
+
+  useEffect(() => {
+    if (genLayer.address) {
+      genLayer.getBorrowerProfile(genLayer.address).then(setBorrowerProfile);
+    }
+  }, [genLayer.address, genLayer.contractAddress, genLayer.proposals]);
+  
+  const handleSubmitProposal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!proposalId || !borrower || !requestedAmount || !powSubmission) return;
-    await genLayer.submitProposal(proposalId, borrower, parseInt(requestedAmount, 10), powSubmission, BigInt(collateralAmount));
-    setProposalId(''); setBorrower(''); setRequestedAmount(''); setPowSubmission(''); setCollateralAmount('0');
+    if (!proposalId || !requestedAmount || !powSubmission) return;
+
+    const payloadObj = { evidence: powSubmission, github_contributions: githubContributions, dao_votes: daoVotes };
+    const payloadStr = JSON.stringify(payloadObj);
+    
+    await genLayer.submitProposal(
+      proposalId, 
+      parseInt(requestedAmount, 10), 
+      payloadStr, 
+      parseInt(walletAgeDays, 10), 
+      parseInt(totalTx, 10), 
+      parseInt(avgBalance, 10), 
+      BigInt(0)
+    );
+    setProposalId(''); setRequestedAmount(''); setPowSubmission(''); setGithubContributions(''); setDaoVotes(''); setCollateralAmount('0');
   };
 
   const handleEvaluate = async (id: string) => {
@@ -26,8 +56,8 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   };
 
   const totalProposals = genLayer.proposals.length;
-  const approvedCount = genLayer.proposals.filter(p => p.state === 'APPROVED').length;
-  const pendingCount = genLayer.proposals.filter(p => p.state === 'PENDING_VERIFICATION').length;
+  const approvedCount = genLayer.proposals.filter(p => p.status === 'APPROVED').length;
+  const pendingCount = genLayer.proposals.filter(p => p.status === 'PENDING').length;
 
   const revealUp = {
     hidden: { opacity: 0, y: 40 },
@@ -41,8 +71,66 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   return (
     <div className="w-full flex flex-col gap-16 font-sans pb-24">
       
+      {/* Borrower Profile View */}
+      {borrowerProfile && (
+        <motion.div variants={revealUp} initial="hidden" animate="visible" className="brutalist-border bg-[var(--text-main)] text-[var(--bg-primary)] p-8 md:p-12 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-5 transition-opacity duration-500 pointer-events-none"></div>
+          <h3 className="font-display font-bold text-3xl md:text-4xl mb-8 uppercase border-b border-[var(--bg-primary)]/20 pb-4">Entity Persistent Profile</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">Repayment Score</span>
+              <div className="font-display font-bold text-4xl">{borrowerProfile.repayment_score}/100</div>
+            </div>
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">Completed Loans</span>
+              <div className="font-display font-bold text-4xl">{borrowerProfile.completed_loans}</div>
+            </div>
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">Late Payments</span>
+              <div className="font-display font-bold text-4xl">{borrowerProfile.late_payments}</div>
+            </div>
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">Defaults</span>
+              <div className="font-display font-bold text-4xl">{borrowerProfile.defaults}</div>
+            </div>
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">Fraud Risk</span>
+              <div className={`font-display font-bold text-4xl ${borrowerProfile.fraud_risk_score === 'CRITICAL' ? 'text-red-500' : ''}`}>{borrowerProfile.fraud_risk_score}</div>
+            </div>
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">Gov Score</span>
+              <div className="font-display font-bold text-4xl">{borrowerProfile.governance_score}</div>
+            </div>
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">KYC Status</span>
+              <div className="font-display font-bold text-2xl mt-2">{borrowerProfile.kyc_status}</div>
+            </div>
+          </div>
+          
+          {borrowerProfile.kyc_status === 'NONE' && (
+            <div className="mt-8 pt-8 border-t border-[var(--bg-primary)]/20 flex flex-col md:flex-row gap-4 items-end">
+              <div className="flex-1">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60 block mb-2">Simulated Doc Hash</span>
+                <input type="text" readOnly value={documentHash} className="w-full bg-transparent border-b border-[var(--bg-primary)]/30 py-2 text-sm text-[var(--bg-primary)] focus:outline-none" />
+              </div>
+              <div className="flex-1">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60 block mb-2">Simulated Selfie Hash</span>
+                <input type="text" readOnly value={selfieHash} className="w-full bg-transparent border-b border-[var(--bg-primary)]/30 py-2 text-sm text-[var(--bg-primary)] focus:outline-none" />
+              </div>
+              <button 
+                onClick={() => genLayer.submitIdentityVerification(documentHash, selfieHash)}
+                disabled={genLayer.isEvaluating}
+                className="px-6 py-2 border border-[var(--bg-primary)] text-[var(--bg-primary)] hover:bg-[var(--bg-primary)] hover:text-[var(--text-main)] font-mono text-xs tracking-widest uppercase transition-colors"
+              >
+                {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Verify Identity (AI)"}
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {/* Top Metrics Grid - Gapless Bento style */}
-      <motion.div variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} className="grid grid-cols-1 lg:grid-cols-3 border border-[var(--text-main)] bg-[var(--text-main)] gap-[1px]">
+      <motion.div variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} className="grid grid-cols-1 lg:grid-cols-4 border border-[var(--text-main)] bg-[var(--text-main)] gap-[1px]">
         <motion.div variants={revealUp} className="p-12 md:p-16 flex flex-col justify-between min-h-[300px] relative overflow-hidden group bg-[var(--card-dark)]">
           <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-5 transition-opacity duration-500 pointer-events-none"></div>
           <h4 className="font-mono text-sm uppercase tracking-[0.2em] text-[var(--bg-primary)]/50 mb-8 border-b border-[var(--bg-primary)]/20 pb-4">Total Entries</h4>
@@ -57,6 +145,12 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
         <motion.div variants={revealUp} className="p-12 md:p-16 flex flex-col justify-between min-h-[300px] bg-[var(--bg-primary)] group">
           <h4 className="font-mono text-sm uppercase tracking-[0.2em] text-[var(--text-muted)] mb-8 border-b border-[var(--border-light)] pb-4">Awaiting Verification</h4>
           <span className="font-display font-bold text-8xl lg:text-[10rem] leading-none text-[var(--text-main)] tracking-tighter">{pendingCount}</span>
+        </motion.div>
+
+        <motion.div variants={revealUp} className="p-12 md:p-16 flex flex-col justify-between min-h-[300px] bg-[var(--bg-primary)] group">
+          <h4 className="font-mono text-sm uppercase tracking-[0.2em] text-[var(--text-muted)] mb-8 border-b border-[var(--border-light)] pb-4">Protocol Treasury</h4>
+          <span className="font-display font-bold text-8xl lg:text-[10rem] leading-none text-[var(--text-main)] tracking-tighter">1% Fee</span>
+          <button onClick={() => genLayer.withdrawProtocolFees(BigInt(100))} className="mt-4 w-full py-2 border border-[var(--text-main)] text-[10px] uppercase font-mono hover:bg-[var(--text-main)] hover:text-white">Withdraw Fees (Admin)</button>
         </motion.div>
       </motion.div>
 
@@ -76,18 +170,40 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                 <span className="font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase mb-1">001</span>
               </div>
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+              <form onSubmit={handleSubmitProposal} className="flex flex-col gap-8">
                 <div className="flex flex-col gap-2 relative">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Request ID</label>
                   <input type="text" value={proposalId} onChange={e => setProposalId(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="REQ-001" required />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Entity Address</label>
-                  <input type="text" value={borrower} onChange={e => setBorrower(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="0x..." required />
-                </div>
+
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">USDC Allocation</label>
                   <input type="number" value={requestedAmount} onChange={e => setRequestedAmount(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1000" required />
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">GitHub PRs</label>
+                    <input type="number" value={githubContributions} onChange={e => setGithubContributions(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="0" />
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">DAO Votes</label>
+                    <input type="number" value={daoVotes} onChange={e => setDaoVotes(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="0" />
+                  </div>
+                </div>
+                
+                <div className="flex gap-4">
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Wallet Age (Days)</label>
+                    <input type="number" value={walletAgeDays} onChange={e => setWalletAgeDays(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="365" />
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Total Tx</label>
+                    <input type="number" value={totalTx} onChange={e => setTotalTx(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="50" />
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Avg Bal ($)</label>
+                    <input type="number" value={avgBalance} onChange={e => setAvgBalance(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1500" />
+                  </div>
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Evidence Payload</label>
@@ -95,7 +211,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                 </div>
                 
                 <button type="submit" className="btn-monolog group w-full mt-6 flex items-center justify-between overflow-hidden relative">
-                  <span className="text-sm tracking-widest uppercase font-mono relative z-10">Transmit</span>
+                  <span className="text-sm tracking-widest uppercase font-mono relative z-10">Commit Securely</span>
                   <ArrowRight className="w-4 h-4 relative z-10 transition-transform group-hover:translate-x-2" />
                 </button>
               </form>
@@ -145,13 +261,15 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                         
                         <div className="flex flex-col items-end gap-4 shrink-0">
                           <div className={`px-4 py-2 font-mono text-[10px] tracking-widest uppercase flex items-center gap-2 border
-                            ${prop.state === 'PENDING_VERIFICATION' ? 'border-[var(--text-main)] text-[var(--text-main)] bg-[var(--bg-primary)]' : 
-                              prop.state === 'APPROVED' ? 'bg-[var(--card-dark)] text-[var(--bg-secondary)] border-[var(--card-dark)]' : 
+                            ${prop.status === 'PENDING' ? 'border-[var(--text-main)] text-[var(--text-main)] bg-[var(--bg-primary)]' : 
+                              prop.status === 'APPROVED' ? 'bg-[var(--card-dark)] text-[var(--bg-secondary)] border-[var(--card-dark)]' : 
                               'bg-[var(--bg-primary)] text-[var(--text-muted)] border-[var(--border-light)]'}`}>
-                            {prop.state === 'PENDING_VERIFICATION' && <RefreshCw className="w-3 h-3 animate-spin" />}
-                            {prop.state === 'APPROVED' && <CheckCircle className="w-3 h-3" />}
-                            {prop.state === 'REJECTED' && <XCircle className="w-3 h-3" />}
-                            {prop.state.replace('_', ' ')}
+                            {prop.status === 'PENDING' && <RefreshCw className="w-3 h-3 animate-spin" />}
+                            {prop.status === 'COMMITTED' && <RefreshCw className="w-3 h-3" />}
+                            {prop.status === 'APPROVED' && <CheckCircle className="w-3 h-3" />}
+                            {prop.status === 'CONDITIONAL_OFFER' && <RefreshCw className="w-3 h-3" />}
+                            {prop.status === 'REJECTED' && <XCircle className="w-3 h-3" />}
+                            {prop.status.replace('_', ' ')}
                           </div>
                           <div className="font-display font-extrabold text-3xl text-[var(--text-main)] mt-2 border-b-4 border-[var(--text-main)] pb-1">
                             ${prop.requested_amount}
@@ -161,7 +279,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                               Vouch XP: {prop.vouch_score}
                             </div>
                           )}
-                          {prop.state === 'APPROVED' && prop.debt && (
+                          {prop.status === 'APPROVED' && prop.debt && (
                             <div className="font-mono text-[10px] uppercase text-[var(--text-main)] mt-1">
                               Repay: ${prop.debt} ({(prop.risk_score / 100).toFixed(2)}% Premium)
                             </div>
@@ -177,7 +295,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                       </div>
 
                       <div className="pt-8 border-t border-[var(--text-main)]">
-                        {prop.state === 'PENDING_VERIFICATION' ? (
+                        {prop.status === 'PENDING' ? (
                           <div className="flex flex-col gap-6">
                             <div className="flex gap-4">
                               <button 
@@ -220,35 +338,71 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                                 Consensus Output
                               </span>
                               <div className="text-[var(--text-muted)] font-medium text-sm leading-relaxed border-l-2 border-[var(--text-main)] pl-4">
-                                {prop.validator_notes || "No verifiable notes recorded."}
+                                {prop.validator_notes || prop.ai_reasoning || "No verifiable notes recorded."}
                               </div>
                             </div>
                             
-                            {prop.state === 'REJECTED' && (
+                            {prop.status === 'REJECTED' && (
                               <div className="mt-4 border border-red-900/30 p-6 bg-[var(--bg-primary)] flex flex-col gap-4">
                                 <div>
-                                  <label className="font-mono text-[10px] uppercase tracking-widest text-red-500 flex items-center gap-2"><XCircle className="w-3 h-3"/> AI Arbitration Tribunal (Dispute)</label>
-                                  <input type="text" value={disputeEvidence[prop.proposal_id] || ''} onChange={e => setDisputeEvidence({...disputeEvidence, [prop.proposal_id]: e.target.value})} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-red-500 focus:outline-none transition-all rounded-none mt-2" placeholder="Paste extra evidence link (GitHub issue, Tweet)..." />
+                                  <label className="font-mono text-[10px] uppercase tracking-widest text-red-500 flex items-center gap-2"><XCircle className="w-3 h-3"/> AI Supreme Court (Appeal)</label>
+                                  <input type="text" value={disputeEvidence[prop.proposal_id] || ''} onChange={e => setDisputeEvidence({...disputeEvidence, [prop.proposal_id]: e.target.value})} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-red-500 focus:outline-none transition-all rounded-none mt-2" placeholder="Provide appeal justification..." />
                                 </div>
                                 <button 
-                                  onClick={() => genLayer.arbitrateDispute(prop.proposal_id, disputeEvidence[prop.proposal_id] || '')}
+                                  onClick={() => genLayer.appealLoanDecision(prop.proposal_id, disputeEvidence[prop.proposal_id] || '')}
                                   disabled={genLayer.isEvaluating || !disputeEvidence[prop.proposal_id]}
                                   className="w-full sm:w-auto self-start px-6 py-2 border border-red-500 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-all disabled:opacity-50"
                                 >
-                                  {genLayer.isEvaluating ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Initiate Arbitration"}
+                                  {genLayer.isEvaluating ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Initiate Appeal"}
                                 </button>
                               </div>
                             )}
 
-                            {prop.state === 'APPROVED' && (
+                            {prop.status === 'CONDITIONAL_OFFER' && (
                               <button 
-                                onClick={() => genLayer.repayLoan(prop.proposal_id)}
+                                onClick={() => genLayer.acceptConditionalOffer(prop.proposal_id)}
+                                disabled={genLayer.isEvaluating}
+                                className="w-full sm:w-auto self-start mt-4 px-6 py-3 bg-[var(--text-main)] text-[var(--bg-secondary)] hover:bg-[var(--card-dark)] flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50"
+                              >
+                                {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Accept AI Counter-Offer"}
+                              </button>
+                            )}
+                            
+                            {prop.status === 'APPROVED' && (
+                              <button 
+                                onClick={() => genLayer.repayLoan(prop.proposal_id, BigInt(prop.debt || 0))}
                                 disabled={genLayer.isEvaluating}
                                 className="w-full sm:w-auto self-start mt-4 px-6 py-3 bg-[var(--bg-primary)] border border-[var(--text-main)] text-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50"
                               >
                                 {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Repay Loan & Debt"}
                               </button>
                             )}
+                            
+                            <div className="mt-6 pt-6 border-t border-[var(--border-light)] flex flex-col gap-4">
+                              <span className="font-mono text-[var(--text-main)] font-bold text-[10px] uppercase tracking-widest block border-b border-[var(--text-main)] pb-2 w-max">
+                                Encrypted Evidence (ZKP)
+                              </span>
+                              <div className="flex flex-col sm:flex-row gap-4">
+                                <input type="text" value={evidenceId[prop.proposal_id] || ''} onChange={e => setEvidenceId({...evidenceId, [prop.proposal_id]: e.target.value})} className="flex-1 bg-transparent border-b border-[var(--border-light)] py-2 text-sm text-[var(--text-main)] focus:outline-none" placeholder="Evidence ID..." />
+                                <input type="text" value={zkHash[prop.proposal_id] || ''} onChange={e => setZkHash({...zkHash, [prop.proposal_id]: e.target.value})} className="flex-1 bg-transparent border-b border-[var(--border-light)] py-2 text-sm text-[var(--text-main)] focus:outline-none" placeholder="ZK Proof Hash..." />
+                              </div>
+                              <div className="flex gap-4">
+                                <button 
+                                  onClick={() => genLayer.submitEncryptedEvidence(prop.proposal_id, evidenceId[prop.proposal_id] || '', zkHash[prop.proposal_id] || '')}
+                                  disabled={genLayer.isEvaluating || !evidenceId[prop.proposal_id] || !zkHash[prop.proposal_id]}
+                                  className="flex-1 px-4 py-2 border border-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] text-[10px] font-mono uppercase transition-colors disabled:opacity-50"
+                                >
+                                  Submit Encrypted
+                                </button>
+                                <button 
+                                  onClick={() => genLayer.revealAgreement(prop.proposal_id, evidenceId[prop.proposal_id] || '')}
+                                  disabled={genLayer.isEvaluating || !evidenceId[prop.proposal_id]}
+                                  className="flex-1 px-4 py-2 border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white text-[10px] font-mono uppercase transition-colors disabled:opacity-50"
+                                >
+                                  Reveal Agreement
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>

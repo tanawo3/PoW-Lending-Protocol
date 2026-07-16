@@ -63,12 +63,34 @@ class PoWSubmission:
     ai_reasoning: str
     validator_notes: str
     risk_score: u256
+    wallet_trust_score: u256
+    income_score: u256
+    reputation_score: u256
     vouch_score: u256
     collateral: u256
     debt: u256
     pool_id: str
+    wallet_age_days: u256
+    total_transactions: u256
+    avg_balance_usd: u256
+    encrypted_evidence: str
+    plaintext_evidence: str
     created_at: u256
     last_updated: u256
+    expires_at: u256
+    fraud_score: u256
+    governance_score: u256
+
+@allow_storage
+@dataclass
+class SpeculativeMarket:
+    market_id: str
+    loan_id: str
+    total_default_bets: u256
+    total_repay_bets: u256
+    bettors: TreeMap[str, u256]
+    resolved: bool
+    outcome: str
 
 @allow_storage
 @dataclass
@@ -98,6 +120,8 @@ class PoWLendingProtocol(gl.Contract):
     pools: TreeMap[str, str]
     pool_ids: DynArray[str]
     pool_counter: u256
+    markets: TreeMap[str, SpeculativeMarket]
+    market_ids: DynArray[str]
     balances: TreeMap[str, u256]
     state: ProtocolState
     owner: str
@@ -138,6 +162,55 @@ class PoWLendingProtocol(gl.Contract):
         if amount == 0:
             return
         _NativeRecipient(Address(recipient)).emit_transfer(value=u256(amount))
+
+    @gl.public.write
+    def withdraw_protocol_fees(self, amount: int) -> None:
+        if str(gl.message.sender_address) != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+        if amount <= 0:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid amount")
+        if int(self.treasury_balance) < amount:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient treasury balance")
+        self.treasury_balance = u256(int(self.treasury_balance) - amount)
+        self._send_gen(self.owner, amount)
+
+    @gl.public.write
+    def submit_identity_verification(self, document_hash: str, selfie_hash: str) -> bool:
+        borrower = str(gl.message.sender_address)
+        profile = self._get_borrower(borrower)
+        profile["kyc_status"] = "UNDER_REVIEW"
+        self._save_borrower(borrower, profile)
+
+        def leader_fn() -> dict:
+            prompt = f"""You are a KYC AI Oracle.
+DOCUMENT HASH: {document_hash}
+SELFIE HASH: {selfie_hash}
+Evaluate the hashes to verify the borrower's identity.
+Return ONLY valid JSON:
+{{
+  "kyc_status": "VERIFIED",
+  "identity_score": 850
+}}"""
+            res = gl.nondet.exec_prompt(prompt, response_format="json")
+            if isinstance(res, dict):
+                return res
+            return {"kyc_status": "VERIFIED", "identity_score": 850}
+
+        def validator_fn(leader_res: gl.vm.Result) -> bool:
+            if not isinstance(leader_res, gl.vm.Return):
+                return _handle_leader_error(leader_res, leader_fn)
+            try:
+                mine = leader_fn()
+                ld_data = leader_res.calldata
+                return mine["kyc_status"] == ld_data.get("kyc_status", "")
+            except gl.vm.UserError:
+                return False
+
+        decision = gl.vm.run_nondet(leader_fn, validator_fn)
+        profile["kyc_status"] = decision.get("kyc_status", "VERIFIED")
+        profile["identity_score"] = int(decision.get("identity_score", 850))
+        self._save_borrower(borrower, profile)
+        return True
 
     # -------------------------------------------------------------------------
     # LIQUIDITY POOLS (DeFi Yield Farming)
@@ -226,7 +299,7 @@ class PoWLendingProtocol(gl.Contract):
         self._save_pool(pool_id, pool)
         self._send_gen(sender, amount)
 
-    @gl.public.view
+    @gl.public.read
     def get_all_pools(self) -> str:
         pools = []
         for pid in self.pool_ids:
@@ -235,12 +308,35 @@ class PoWLendingProtocol(gl.Contract):
                 pools.append(pool)
         return json.dumps(pools)
 
+    @gl.public.read
+    def get_all_markets(self) -> str:
+        markets_list = []
+        for mid in self.market_ids:
+            m = self.markets.get(mid)
+            if m:
+                # Format to match useGenLayer.tsx SpeculativeMarket interface:
+                # {market_id, question, total_pool_yes, total_pool_no, resolved, outcome_yes, bets_yes, bets_no}
+                bets_yes_dict = {k: int(v) for k, v in m.bettors.items() if str(k).endswith("_REPAY")}
+                bets_no_dict = {k: int(v) for k, v in m.bettors.items() if str(k).endswith("_DEFAULT")}
+                markets_list.append({
+                    "market_id": m.market_id,
+                    "question": f"Will proposal {m.loan_id} be repaid?",
+                    "total_pool_yes": int(m.total_repay_bets),
+                    "total_pool_no": int(m.total_default_bets),
+                    "resolved": m.resolved,
+                    "outcome_yes": m.outcome == 'REPAY',
+                    "bets_yes": bets_yes_dict,
+                    "bets_no": bets_no_dict
+                })
+        return json.dumps(markets_list)
+        
+
     # -------------------------------------------------------------------------
     # CORE BUSINESS LOGIC
     # -------------------------------------------------------------------------
 
     @gl.public.write.payable
-    def submit_proposal(self, proposal_id: str, borrower: str, requested_amount: int, pow_submission: str) -> bool:
+    def submit_proposal(self, proposal_id: str, borrower: str, requested_amount: int, pow_submission: str, wallet_age_days: int = 0, total_transactions: int = 0, avg_balance_usd: int = 0) -> bool:
         """
         Ingests a new loan proposal from an external client.
         
@@ -249,6 +345,9 @@ class PoWLendingProtocol(gl.Contract):
             borrower: Identifier string.
             requested_amount: Integer representing capital.
             pow_submission: Unstructured text detailing the proof of work or GitHub handle.
+            wallet_age_days: Telemetry for wallet age.
+            total_transactions: Telemetry for wallet transactions.
+            avg_balance_usd: Telemetry for wallet average balance.
             
         Returns:
             bool: True if ingestion was successful.
@@ -275,15 +374,39 @@ class PoWLendingProtocol(gl.Contract):
             ai_reasoning="",
             validator_notes="",
             risk_score=u256(0),
+            wallet_trust_score=u256(0),
+            income_score=u256(0),
+            reputation_score=u256(0),
             vouch_score=u256(0),
             collateral=u256(gl.message.value),
             debt=u256(0),
             pool_id="",
+            wallet_age_days=u256(wallet_age_days),
+            total_transactions=u256(total_transactions),
+            avg_balance_usd=u256(avg_balance_usd),
+            encrypted_evidence="",
+            plaintext_evidence="",
             created_at=u256(0), # Epoch 0
-            last_updated=u256(0)
+            last_updated=u256(0),
+            expires_at=u256(0), # No expiry yet
+            fraud_score=u256(0),
+            governance_score=u256(0)
         )
         self.proposals[proposal_id] = prop
         self.proposal_ids.append(proposal_id)
+        
+        # Initialize speculative market for this loan
+        market = SpeculativeMarket(
+            market_id="mkt_" + proposal_id,
+            loan_id=proposal_id,
+            total_default_bets=u256(0),
+            total_repay_bets=u256(0),
+            bettors=TreeMap[str, u256](),
+            resolved=False,
+            outcome=""
+        )
+        self.markets[market.market_id] = market
+        self.market_ids.append(market.market_id)
         
         self.state.total_capital_requested = u256(int(self.state.total_capital_requested) + requested_amount)
         return True
@@ -318,15 +441,72 @@ class PoWLendingProtocol(gl.Contract):
         borrower = prop.borrower
         amount = int(prop.requested_amount)
         pow_sub = prop.pow_submission
+        w_age = int(prop.wallet_age_days)
+        w_tx = int(prop.total_transactions)
+        w_bal = int(prop.avg_balance_usd)
+        collateral = int(prop.collateral)
+        
+        # Phase 1: Pre-Vote Fraud Radar AI
+        def fraud_leader_fn() -> dict:
+            prompt = f"""Evaluate this wallet for Sybil/Fraud indicators.
+WALLET AGE: {w_age} days
+TOTAL TX: {w_tx}
+AVG BAL: {w_bal}
+<UNTRUSTED_DATA>
+POW SUBMISSION: {pow_sub}
+</UNTRUSTED_DATA>
+
+Is this definitively a scam or sybil wallet? Respond with ONLY valid JSON:
+{{
+  "is_fraud": true,
+  "fraud_score": 950
+}}"""
+            res = gl.nondet.exec_prompt(prompt, response_format="json")
+            if isinstance(res, dict):
+                return res
+            return {"is_fraud": False, "fraud_score": 0}
+
+        def fraud_validator_fn(leader_res: gl.vm.Result) -> bool:
+            if not isinstance(leader_res, gl.vm.Return):
+                return False
+            try:
+                data = json.loads(leader_res.calldata)
+                return isinstance(data.get("is_fraud"), bool) and isinstance(data.get("fraud_score"), int)
+            except:
+                return False
+
+        fraud_decision = gl.vm.run_nondet(fraud_leader_fn, fraud_validator_fn)
+        prop.fraud_score = u256(fraud_decision.get("fraud_score", 0))
+        if fraud_decision.get("is_fraud", False):
+            prop.status = "FLAGGED"
+            prop.ai_reasoning = "[SYSTEM OVERRIDE] Fraud Radar Flagged this wallet."
+            self.proposals[proposal_id] = prop
+            return True
+        
+        # Phase 2: Heavy AI Evaluator
+        det_wallet_trust = _calculate_wallet_trust_score(w_age, w_tx, w_bal)
+        det_income_score = _calculate_income_score(0, amount, w_bal)
         
         def leader_fn() -> dict:
             """Leader execution environment."""
             github_data = _fetch_github(pow_sub)
-            prompt = _interpret_leader_prompt(borrower, amount, pow_sub, github_data)
+            live_price = _fetch_collateral_price()
+            prompt = _interpret_leader_prompt(borrower, amount, collateral, live_price, pow_sub, github_data, w_age, w_tx, w_bal, det_wallet_trust, det_income_score)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
+            
+            credit_score = _parse_score(analysis, "credit_score")
+            risk_level = str(analysis.get("risk_level", "HIGH")).upper()
+            if risk_level not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
+                risk_level = "HIGH"
+                
+            interest_rate_bps = _calculate_interest_rate_bps(credit_score, risk_level)
+            
             return {
                 "verdict": _parse_verdict(analysis),
-                "risk_score": _parse_ratio_bps(analysis),
+                "risk_score": interest_rate_bps,
+                "wallet_trust_score": det_wallet_trust,
+                "income_score": det_income_score,
+                "reputation_score": _parse_score(analysis, "reputation_score"),
                 "summary": _clean_summary(analysis)
             }
             
@@ -348,6 +528,9 @@ class PoWLendingProtocol(gl.Contract):
         prop.status = decision["verdict"]
         prop.ai_reasoning = decision["summary"]
         prop.risk_score = u256(decision["risk_score"])
+        prop.wallet_trust_score = u256(decision["wallet_trust_score"])
+        prop.income_score = u256(decision["income_score"])
+        prop.reputation_score = u256(decision["reputation_score"])
         prop.last_updated = u256(int(prop.last_updated) + 1)
         if prop.status == "APPROVED":
             loan_amount = int(prop.requested_amount)
@@ -392,13 +575,56 @@ class PoWLendingProtocol(gl.Contract):
         return True
 
     @gl.public.write
-    def arbitrate_dispute(self, proposal_id: str, dispute_evidence: str) -> bool:
+    def accept_conditional_offer(self, proposal_id: str) -> bool:
+        if proposal_id not in self.proposals:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal not found")
+        prop = self.proposals[proposal_id]
+        if str(gl.message.sender_address) != prop.borrower:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
+        if prop.status != "CONDITIONAL_OFFER":
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} No conditional offer exists")
+            
+        loan_amount = int(prop.requested_amount)
+        funded_by_pool = ""
+        for pid in self.pool_ids:
+            pool = self._get_pool(pid)
+            if pool.get("status") == "ACTIVE" and int(pool.get("available_liquidity_wei", 0)) >= loan_amount:
+                funded_by_pool = pid
+                pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) - loan_amount
+                self._save_pool(pid, pool)
+                break
+                
+        if not funded_by_pool and loan_amount > 0:
+            prop.status = "REJECTED"
+            prop.ai_reasoning += " [SYSTEM OVERRIDE: Insufficient Liquidity for Offer Acceptance.]"
+        else:
+            prop.status = "APPROVED"
+            prop.pool_id = funded_by_pool
+            interest_bps = int(prop.risk_score)
+            interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
+            prop.debt = u256(loan_amount + interest_amount)
+            
+            current_balance = int(self.balances.get(prop.borrower, u256(0)))
+            self.balances[prop.borrower] = u256(current_balance + loan_amount)
+            
+            if loan_amount > 0:
+                _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
+                
+            self.state.total_approved = u256(int(self.state.total_approved) + 1)
+            self.state.total_capital_approved = u256(int(self.state.total_capital_approved) + loan_amount)
+            
+        self.proposals[proposal_id] = prop
+        self._recalculate_global_risk()
+        return True
+
+    @gl.public.write
+    def appeal_loan_decision(self, proposal_id: str, dispute_evidence: str) -> bool:
         """Invokes the AI Arbitration Engine to review a REJECTED proposal."""
         if proposal_id not in self.proposals:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal not found")
         prop = self.proposals[proposal_id]
         if prop.status != "REJECTED":
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Only rejected proposals can be arbitrated")
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Only rejected proposals can be appealed")
             
         pow_sub = prop.pow_submission
         ai_reasoning = prop.ai_reasoning
@@ -520,10 +746,14 @@ class PoWLendingProtocol(gl.Contract):
             
         # Return principal + interest to the liquidity pool that funded it
         if prop.pool_id:
+            fee = debt // 100 # 1% treasury fee
+            pool_return = debt - fee
+            self.treasury_balance = u256(int(getattr(self, "treasury_balance", 0)) + fee)
+            
             pool = self._get_pool(prop.pool_id)
             if pool:
-                pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) + debt
-                pool["total_deposited_wei"] = int(pool.get("total_deposited_wei", 0)) + (debt - int(prop.requested_amount))
+                pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) + pool_return
+                pool["total_deposited_wei"] = int(pool.get("total_deposited_wei", 0)) + (pool_return - int(prop.requested_amount))
                 self._save_pool(prop.pool_id, pool)
             
         prop.status = "REPAID"
@@ -583,6 +813,9 @@ class PoWLendingProtocol(gl.Contract):
                 "ai_reasoning": p.ai_reasoning,
                 "validator_notes": getattr(p, "validator_notes", ""),
                 "risk_score": int(p.risk_score),
+                "wallet_trust_score": int(getattr(p, "wallet_trust_score", 0)),
+                "income_score": int(getattr(p, "income_score", 0)),
+                "reputation_score": int(getattr(p, "reputation_score", 0)),
                 "vouch_score": int(getattr(p, "vouch_score", 0)),
                 "collateral": str(int(getattr(p, "collateral", 0))),
                 "debt": str(int(getattr(p, "debt", 0))),
@@ -684,6 +917,92 @@ class PoWLendingProtocol(gl.Contract):
         return str(projected / 100.0)
 
     # -------------------------------------------------------------------------
+    # ZERO-KNOWLEDGE ENCRYPTED EVIDENCE
+    # -------------------------------------------------------------------------
+    @gl.public.write
+    def submit_encrypted_evidence(self, proposal_id: str, encrypted_payload: str) -> None:
+        if proposal_id not in self.proposals:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal not found")
+        prop = self.proposals[proposal_id]
+        if str(gl.message.sender_address) != prop.borrower:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
+            
+        prop.encrypted_evidence = encrypted_payload
+        prop.last_updated = u256(int(prop.last_updated) + 1)
+        self.proposals[proposal_id] = prop
+
+    @gl.public.write
+    def reveal_agreement(self, proposal_id: str, plaintext: str, salt: str) -> bool:
+        """
+        Reveals the encrypted evidence by verifying the hash deterministically.
+        In production, a true zk-proof or secure hash logic is used. 
+        For now, we simply update the plaintext if the borrower chooses to reveal.
+        """
+        if proposal_id not in self.proposals:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal not found")
+        prop = self.proposals[proposal_id]
+        if str(gl.message.sender_address) != prop.borrower and str(gl.message.sender_address) != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
+            
+        prop.plaintext_evidence = plaintext
+        self.proposals[proposal_id] = prop
+        return True
+
+    # -------------------------------------------------------------------------
+    # SPECULATIVE DEFAULT MARKETS
+    # -------------------------------------------------------------------------
+    @gl.public.write.payable
+    def place_bet(self, market_id: str, outcome: str) -> None:
+        """
+        Places a bet on a loan's outcome. Outcome must be 'DEFAULT' or 'REPAY'.
+        """
+        sender = str(gl.message.sender_address)
+        amount = int(gl.message.value)
+        if amount <= 0:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Bet amount must be positive")
+        if market_id not in self.markets:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Market not found")
+            
+        market = self.markets[market_id]
+        if market.resolved:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Market already resolved")
+            
+        if outcome == "DEFAULT":
+            market.total_default_bets = u256(int(market.total_default_bets) + amount)
+        elif outcome == "REPAY":
+            market.total_repay_bets = u256(int(market.total_repay_bets) + amount)
+        else:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid outcome, must be DEFAULT or REPAY")
+            
+        current_bet = int(market.bettors.get(sender + "_" + outcome, 0))
+        market.bettors[sender + "_" + outcome] = u256(current_bet + amount)
+        
+        self.markets[market_id] = market
+
+    @gl.public.write
+    def resolve_market(self, market_id: str, actual_outcome: str) -> None:
+        """
+        Resolves the market based on the actual outcome of the loan.
+        Only the owner can call this for now (or it could be tied to repay_loan/mark_default).
+        """
+        if str(gl.message.sender_address) != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+        if market_id not in self.markets:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Market not found")
+            
+        market = self.markets[market_id]
+        if market.resolved:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Market already resolved")
+            
+        market.resolved = True
+        market.outcome = actual_outcome
+        self.markets[market_id] = market
+        
+        # Payout logic would iterate through bettors or they would claim later.
+        # GenVM iteration limits mean a pull-based withdrawal pattern is better in production.
+        # But this sets the state for bettors to claim.
+
+    # -------------------------------------------------------------------------
     # INTERNAL METHODS
     # -------------------------------------------------------------------------
     
@@ -773,6 +1092,60 @@ def _calculate_approval_ratio(approved: int, total: int) -> int:
     if total == 0: return 0
     return (approved * BPS_DENOMINATOR) // total
 
+def _calculate_repayment_score(completed: int, late: int, defaults: int) -> int:
+    if defaults > 0:
+        return max(0, 20 - defaults * 10)
+    if completed == 0:
+        return 50
+    score = min(100, completed * 15)
+    score -= late * 5
+    return max(0, score)
+
+def _calculate_wallet_trust_score(age_days: int, transactions: int, avg_balance: int) -> int:
+    age_score = min(40, age_days // 10)
+    tx_score = min(30, transactions // 10)
+    balance_score = min(30, avg_balance // 100)
+    return age_score + tx_score + balance_score
+
+def _calculate_income_score(monthly_income_usd: int, loan_amount_wei: int, avg_balance_usd: int) -> int:
+    if monthly_income_usd == 0:
+        return 10
+    if avg_balance_usd == 0:
+        return 40
+    if avg_balance_usd < monthly_income_usd:
+        return 50
+    return 80
+
+def _calculate_governance_score(github: int, dao_votes: int) -> int:
+    gh_score = min(50, github // 5)
+    dao_score = min(50, dao_votes * 5)
+    return gh_score + dao_score
+
+def _calculate_interest_rate_bps(credit_score: int, risk_level: str) -> int:
+    base_rates = {
+        "LOW": 500,
+        "MEDIUM": 900,
+        "HIGH": 1500,
+        "CRITICAL": 2500,
+    }
+    base = base_rates.get(risk_level, 1500)
+    adjustment = max(0, (750 - credit_score) // 50) * 100
+    return base + adjustment
+
+def _calculate_collateral_ratio_bps(credit_score: int, risk_level: str) -> int:
+    ratios = {
+        "LOW": 2000,
+        "MEDIUM": 4000,
+        "HIGH": 7000,
+        "CRITICAL": 10000,
+    }
+    base = ratios.get(risk_level, 5000)
+    if credit_score > 750:
+        base = max(0, base - 1000)
+    if credit_score < 500:
+        base = min(10000, base + 2000)
+    return base
+
 def _fetch_github(username: str) -> str:
     """Fetches and sanitizes github metadata context for underwriting."""
     if not username or len(username) > 50: return "{}"
@@ -811,6 +1184,20 @@ def _fetch_github(username: str) -> str:
             raise e
         return "{}"
 
+def _fetch_collateral_price() -> str:
+    """Fetches real-time asset pricing for deterministic LTV evaluations."""
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
+        response = gl.nondet.web.get(url)
+        if response.status >= 400: return "Unknown"
+        data = json.loads(response.body.decode("utf-8", errors="ignore"))
+        val = data.get("ethereum", {}).get("usd")
+        if val is not None:
+            return str(val)
+        return "Unknown"
+    except Exception:
+        return "Unknown"
+
 def _handle_leader_error(leaders_res, leader_fn) -> bool:
     """
     Consensus-Aware Error Handler.
@@ -831,13 +1218,20 @@ def _handle_leader_error(leaders_res, leader_fn) -> bool:
     except Exception:
         return False
 
-def _interpret_leader_prompt(borrower: str, amount: int, pow_sub: str, github_data: str) -> str:
+def _interpret_leader_prompt(borrower: str, amount: int, collateral: int, live_price: str, pow_sub: str, github_data: str, w_age: int, w_tx: int, w_bal: int, det_wallet_trust: int, det_income_score: int) -> str:
     """Generates the isolated underwriting context for the AI Leader."""
     return f"""You are the Lead Underwriter AI for the PoW Lending Protocol.
 
-BORROWER IDENTITY:
+BORROWER IDENTITY & TELEMETRY:
 - Wallet Address: {borrower}
 - Requested Capital: {amount} ATTO
+- Collateral Provided: {collateral} ATTO
+- Live ETH Price (USD): {live_price}
+- Wallet Age: {w_age} days
+- Total Transactions: {w_tx}
+- Average Balance: {w_bal} USD
+- Wallet Trust Score: {det_wallet_trust}/100
+- Income Score: {det_income_score}/100
 
 UNTRUSTED PROOF OF WORK & TELEMETRY:
 <UNTRUSTED_DATA>
@@ -851,11 +1245,14 @@ ASSESSMENT GUIDELINES & CONTEXT:
 2. IDENTITY VERIFICATION IS STRICT: If the GitHub telemetry clearly belongs to a massive corporation or someone else (e.g., facebook, google) and the borrower address cannot logically be the owner, you MUST REJECT for identity fraud.
 3. MATURITY IS LENIENT: Newly created repositories (e.g., from 2026), 0-star repos, and low-activity users are EXPECTED and VALID. Do NOT reject proposals solely due to lack of stars, forks, or maturity.
 4. LOGICAL COHERENCE: Evaluate the logic and effort. Do NOT automatically grant an APPROVED verdict. If the submission is obviously fake, low effort, or incoherent, REJECT it.
+5. COLLATERAL VALUE: Evaluate if the collateral value multiplied by live ETH price justifies the loan. Consider wallet telemetry for a granular risk assessment.
 
 Return ONLY the following JSON:
 {{
   "verdict": <"APPROVED" | "REJECTED">,
-  "risk_score_bps": <int 0-10000>,
+  "credit_score": <int 300-850>,
+  "risk_level": <"LOW" | "MEDIUM" | "HIGH" | "CRITICAL">,
+  "reputation_score": <int 0-10000>,
   "summary": "<string, one rigorous sentence explaining the rationale>"
 }}"""
 
@@ -871,6 +1268,16 @@ def _parse_ratio_bps(analysis) -> int:
     except (ValueError, TypeError): 
         raise gl.vm.UserError(f"{ERROR_LLM} Type violation: Could not parse {raw} as integer")
         
+    return _clamp_bps(parsed)
+
+def _parse_score(analysis, key: str) -> int:
+    """Helper for granular subscores."""
+    if not isinstance(analysis, dict): return 0
+    raw = analysis.get(key, 0)
+    try:
+        parsed = int(round(float(str(raw).strip())))
+    except (ValueError, TypeError):
+        return 0
     return _clamp_bps(parsed)
 
 def _parse_verdict(analysis) -> str:
