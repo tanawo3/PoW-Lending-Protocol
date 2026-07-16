@@ -2,6 +2,7 @@
 
 import json
 import re
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from genlayer import *
 
@@ -133,10 +134,14 @@ class PoWLendingProtocol(gl.Contract):
         self.state.total_capital_requested = u256(0)
         self.state.total_capital_approved = u256(0)
         self.state.global_risk_index_bps = u256(0)
+        self.state.global_risk_index_bps = u256(0)
         self.pool_counter = u256(0)
 
+    def _now(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
+
     # -------------------------------------------------------------------------
-    # UTILITY METHODS
+    # PRIVATE UTILITY & STORAGE HELPERS
     # -------------------------------------------------------------------------
     def _loads(self, raw: str, fallback):
         if not raw:
