@@ -209,9 +209,11 @@ class PoWLendingProtocol(gl.Contract):
 
         def leader_fn() -> dict:
             prompt = f"""You are a KYC AI Oracle.
+<UNTRUSTED_DATA>
 DOCUMENT HASH: {document_hash}
 SELFIE HASH: {selfie_hash}
 PROOF OF ADDRESS HASH: {proof_of_address_hash}
+</UNTRUSTED_DATA>
 Evaluate the hashes to verify the borrower's identity.
 Return ONLY valid JSON:
 {{
@@ -229,6 +231,7 @@ Return ONLY valid JSON:
             try:
                 mine = leader_fn()
                 ld_data = leader_res.calldata
+                if not isinstance(ld_data, dict): return False
                 return mine.get("kyc_status", "") == ld_data.get("kyc_status", "")
             except gl.vm.UserError:
                 return False
@@ -377,8 +380,8 @@ Return ONLY valid JSON:
                     oracle_results["alternative_me_fng"] = response.body.decode("utf-8", errors="ignore")[:400]
                 else:
                     oracle_results["alternative_me_fng"] = "UNAVAILABLE: HTTP " + str(response.status)
-            except Exception as e:
-                oracle_results["alternative_me_fng"] = f"UNAVAILABLE: {str(e)}"
+            except Exception:
+                oracle_results["alternative_me_fng"] = "UNAVAILABLE: Connection Error"
                 
             # Oracle 2: CoinGecko BTC price
             try:
@@ -387,8 +390,8 @@ Return ONLY valid JSON:
                     oracle_results["coingecko_btc"] = response.body.decode("utf-8", errors="ignore")[:400]
                 else:
                     oracle_results["coingecko_btc"] = "UNAVAILABLE: HTTP " + str(response.status)
-            except Exception as e:
-                oracle_results["coingecko_btc"] = f"UNAVAILABLE: {str(e)}"
+            except Exception:
+                oracle_results["coingecko_btc"] = "UNAVAILABLE: Connection Error"
 
             all_failed = all("UNAVAILABLE" in v for v in oracle_results.values())
             if all_failed:
@@ -411,10 +414,11 @@ Output a JSON with exactly two fields:
             return {"global_risk_bps": 5000, "reasoning": "Parse failure"}
 
         def validator_fn(leader_res: gl.vm.Result) -> bool:
-            if leader_res.error:
+            if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                data = json.loads(leader_res.calldata)
+                data = leader_res.calldata
+                if not isinstance(data, dict): return False
                 risk = int(data.get("global_risk_bps", 5000))
                 return 0 <= risk <= 10000
             except Exception:
@@ -422,8 +426,9 @@ Output a JSON with exactly two fields:
 
         result = gl.vm.run_nondet(leader_fn, validator_fn)
         try:
-            data = json.loads(result.calldata)
-            self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
+            data = result.calldata
+            if isinstance(data, dict):
+                self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
         except Exception:
             pass
         return True
@@ -614,7 +619,8 @@ Output a JSON with exactly two fields:
             try:
                 mine = leader_fn()
                 ld_data = leader_res.calldata
-                return mine["verdict"] == ld_data["verdict"] and isinstance(ld_data.get("risk_score"), int)
+                if not isinstance(ld_data, dict): return False
+                return mine.get("verdict") == ld_data.get("verdict") and isinstance(ld_data.get("risk_score"), int)
             except gl.vm.UserError:
                 return False
 
@@ -740,7 +746,8 @@ Output a JSON with exactly two fields:
             try:
                 mine = leader_fn()
                 ld_data = leader_res.calldata
-                return mine["verdict"] == ld_data["verdict"]
+                if not isinstance(ld_data, dict): return False
+                return mine.get("verdict") == ld_data.get("verdict")
             except gl.vm.UserError:
                 return False
                 
@@ -815,6 +822,7 @@ Output a JSON with exactly two fields:
             try:
                 mine = leader_fn()
                 ld_data = leader_res.calldata
+                if not isinstance(ld_data, dict): return False
                 return isinstance(ld_data.get("vouch_quality_bps"), int)
             except gl.vm.UserError:
                 return False
