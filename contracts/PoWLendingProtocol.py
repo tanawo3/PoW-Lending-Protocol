@@ -101,6 +101,7 @@ class ProtocolState:
     total_capital_approved: u256
     global_risk_index_bps: u256
     macro_risk_reasoning: str
+    last_macro_rebalance: str
 
 class PoWLendingProtocol(gl.Contract):
     """
@@ -147,7 +148,8 @@ class PoWLendingProtocol(gl.Contract):
             total_capital_requested=u256(0),
             total_capital_approved=u256(0),
             global_risk_index_bps=u256(0),
-            macro_risk_reasoning="Awaiting first risk rebalance."
+            macro_risk_reasoning="Awaiting first risk rebalance.",
+            last_macro_rebalance=""
         )
         self.pool_counter = u256(0)
         self.treasury_balance = u256(0)
