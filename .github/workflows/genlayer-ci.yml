@@ -1,0 +1,73 @@
+name: GenLayer CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-and-verify:
+    name: GenVM Direct Mode Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install GenLayer Simulator
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio
+          # Note: Assume genlayer python simulator dependency is installed here in real scenarios
+
+      - name: Run Contract Tests
+        run: |
+          pytest tests/
+
+  deployment-check:
+    name: Node.js Deployment Script Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install JS SDK
+        run: |
+          npm ci
+
+      - name: Verify Deployment Script Syntax
+        run: |
+          node -c scripts/deploy.mjs
+          node -c scripts/live-test.mjs
+
+  frontend-check:
+    name: Frontend Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install Dependencies
+        working-directory: ./frontend
+        run: |
+          npm ci
+
+      - name: Run Build
+        working-directory: ./frontend
+        run: |
+          npm run build
