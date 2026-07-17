@@ -1075,6 +1075,24 @@ export const useGenLayer = () => {
       }
   };
 
+  const checkPoolSolvency = async (pool_id: string) => {
+    try {
+        const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+        const client = getGenLayerClient(network, address, provider);
+        const result = await (client as any).readContract({
+            address: contractAddress,
+            functionName: 'check_pool_solvency',
+            args: [pool_id]
+        });
+        return result ? JSON.parse(result as string) : null;
+    } catch (e: any) {
+        console.error(e);
+        return null;
+    }
+  };
+      }
+  };
+
   return {
       address,
       isConnected,

@@ -1240,6 +1240,49 @@ Output a JSON with exactly two fields:
         projected = min(projected, BPS_DENOMINATOR)
         return str(projected / 100.0)
 
+    @gl.public.view
+    def check_pool_solvency(self, pool_id: str) -> str:
+        """
+        Financial Analysis: Calculates the Solvency and Health Factor of a liquidity pool.
+        Health Factor = Total Collateral / Total Debt
+        If Health Factor < 1.0, the pool is technically insolvent.
+        """
+        pool = self._get_pool(pool_id)
+        if not pool:
+            return json.dumps({"error": "Pool not found"})
+            
+        total_debt = 0
+        total_collateral = 0
+        active_loans = 0
+        
+        for pid in self.proposal_ids:
+            p = self.proposals[pid]
+            if p.pool_id == pool_id and p.status == "APPROVED":
+                total_debt += int(p.debt)
+                total_collateral += int(p.collateral)
+                active_loans += 1
+                
+        if total_debt == 0:
+            health_factor = 999.99 # Infinite health
+            status = "PERFECT"
+        else:
+            health_factor = total_collateral / total_debt
+            if health_factor >= 1.5:
+                status = "SECURE"
+            elif health_factor >= 1.0:
+                status = "AT_RISK"
+            else:
+                status = "INSOLVENT"
+                
+        return json.dumps({
+            "pool_id": pool_id,
+            "active_loans": active_loans,
+            "total_debt_wei": total_debt,
+            "total_collateral_wei": total_collateral,
+            "health_factor": f"{health_factor:.2f}",
+            "status": status
+        })
+
     # -------------------------------------------------------------------------
     # ZERO-KNOWLEDGE ENCRYPTED EVIDENCE
     # -------------------------------------------------------------------------

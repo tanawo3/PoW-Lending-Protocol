@@ -202,6 +202,24 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                         <p className="font-mono text-xs text-[var(--text-muted)] tracking-widest uppercase">ID: {pool.pool_id}</p>
                       </div>
                       
+                      <div className="flex flex-col gap-2 items-end">
+                        <button 
+                            onClick={() => handleCheckSolvency(pool.pool_id)}
+                            disabled={checkingSolvency[pool.pool_id]}
+                            className="font-mono text-[10px] uppercase border border-[var(--border-light)] px-2 py-1 hover:bg-[var(--text-main)] hover:text-[var(--bg-main)] transition-colors"
+                        >
+                            {checkingSolvency[pool.pool_id] ? 'ANALYZING...' : 'CHECK SOLVENCY'}
+                        </button>
+                        {solvencyData[pool.pool_id] && (
+                            <div className={`font-mono text-[10px] px-2 py-1 uppercase tracking-widest ${
+                                solvencyData[pool.pool_id].status === 'SECURE' || solvencyData[pool.pool_id].status === 'PERFECT' ? 'text-green-500 bg-green-500/10' :
+                                solvencyData[pool.pool_id].status === 'AT_RISK' ? 'text-yellow-500 bg-yellow-500/10' : 'text-red-500 bg-red-500/10'
+                            }`}>
+                                HEALTH: {solvencyData[pool.pool_id].health_factor} | {solvencyData[pool.pool_id].status}
+                            </div>
+                        )}
+                      </div>
+                      
                       <div className="flex items-center gap-6 text-right">
                         <div>
                           <span className="block font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase mb-1">Available Liquidity</span>
