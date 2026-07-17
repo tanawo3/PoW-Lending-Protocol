@@ -222,25 +222,49 @@ export const useGenLayer = () => {
     try {
       receipt = await activeClient.waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
     } catch (e: any) {
+      // If waitForTransactionReceipt throws (which it does on rollbacks in some genlayer-js versions)
+      // we still need to fetch the transaction to extract the exact [EXPECTED] error
+      let transaction;
+      try {
+        transaction = await activeClient.getTransaction({ hash }).catch(() => null);
+      } catch (err) {
+        console.error("getTransaction failed:", err);
+      }
+
       let detail = "";
       try {
         const trace = await activeClient.debugTraceTransaction({ hash, round: 0 });
-        const returnText =
-          trace?.return_data?.startsWith("0x") && trace.return_data.length > 2
-            ? new TextDecoder().decode(
-                new Uint8Array(
-                  trace.return_data
-                    .slice(2)
-                    .match(/.{1,2}/g)
-                    ?.map((byte: string) => parseInt(byte, 16)) ?? []
-                )
-              )
+        const returnText = trace?.return_data?.startsWith("0x") && trace.return_data.length > 2
+            ? new TextDecoder().decode(new Uint8Array(trace.return_data.slice(2).match(/.{1,2}/g)?.map((byte: string) => parseInt(byte, 16)) ?? []))
             : trace?.return_data;
         detail = [returnText, trace?.stderr].filter(Boolean).join(" ");
       } catch (traceErr) {
-        console.error("debugTraceTransaction failed:", traceErr);
+        // debugTraceTransaction is not available on studio.genlayer.com
       }
-      const finalMsg = detail || e.message || "Transaction rolled back during execution";
+
+      const merged = { ...receipt, ...transaction, data: { ...(receipt?.data || {}), ...(transaction?.data || {}) } };
+      const findError = (obj: any): string | null => {
+        if (!obj) return null;
+        if (typeof obj === 'string' && (obj.includes('[EXPECTED]') || obj.includes('Rollback') || obj.includes('Insufficient'))) return obj;
+        if (Array.isArray(obj)) {
+            for (const item of obj) {
+                const res = findError(item);
+                if (res) return res;
+            }
+        } else if (typeof obj === 'object') {
+            for (const key in obj) {
+                if (key === 'error' || key === 'error_message' || key === 'errorMessage' || key === 'message') {
+                    if (typeof obj[key] === 'string' && obj[key].trim() !== '') return obj[key];
+                }
+                const res = findError(obj[key]);
+                if (res) return res;
+            }
+        }
+        return null;
+      };
+
+      const deepError = findError(merged);
+      const finalMsg = detail || deepError || e.message || "Transaction rolled back during execution";
       updateTxStatus(hash, 'failed', finalMsg);
       throw new Error(finalMsg);
     }
@@ -259,26 +283,43 @@ export const useGenLayer = () => {
 
     if (isError) {
       console.error("Tx failed receipt:", receipt);
+      let transaction;
+      try {
+        transaction = await activeClient.getTransaction({ hash }).catch(() => null);
+      } catch (err) {}
+
       let detail = "";
       try {
         const trace = await activeClient.debugTraceTransaction({ hash, round: 0 });
-        const returnText =
-          trace?.return_data?.startsWith("0x") && trace.return_data.length > 2
-            ? new TextDecoder().decode(
-                new Uint8Array(
-                  trace.return_data
-                    .slice(2)
-                    .match(/.{1,2}/g)
-                    ?.map((byte: string) => parseInt(byte, 16)) ?? []
-                )
-              )
+        const returnText = trace?.return_data?.startsWith("0x") && trace.return_data.length > 2
+            ? new TextDecoder().decode(new Uint8Array(trace.return_data.slice(2).match(/.{1,2}/g)?.map((byte: string) => parseInt(byte, 16)) ?? []))
             : trace?.return_data;
         detail = [returnText, trace?.stderr].filter(Boolean).join(" ");
-      } catch (traceErr) {
-        console.error("debugTraceTransaction failed:", traceErr);
-      }
+      } catch (traceErr) {}
       
-      const errMsg = detail || "Transaction rolled back during execution";
+      const merged = { ...receipt, ...transaction };
+      const findError = (obj: any): string | null => {
+        if (!obj) return null;
+        if (typeof obj === 'string' && (obj.includes('[EXPECTED]') || obj.includes('Rollback') || obj.includes('Insufficient'))) return obj;
+        if (Array.isArray(obj)) {
+            for (const item of obj) {
+                const res = findError(item);
+                if (res) return res;
+            }
+        } else if (typeof obj === 'object') {
+            for (const key in obj) {
+                if (key === 'error' || key === 'error_message' || key === 'errorMessage' || key === 'message') {
+                    if (typeof obj[key] === 'string' && obj[key].trim() !== '') return obj[key];
+                }
+                const res = findError(obj[key]);
+                if (res) return res;
+            }
+        }
+        return null;
+      };
+
+      const deepError = findError(merged);
+      const errMsg = detail || deepError || "Transaction rolled back during execution";
       updateTxStatus(hash, 'failed', errMsg);
       throw new Error(errMsg);
     }
