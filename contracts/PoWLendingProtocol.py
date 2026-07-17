@@ -379,18 +379,28 @@ Scoring guidance:
         self._send_gen(sender, amount)
 
     @gl.public.view
-    def get_all_pools(self) -> str:
+    def get_all_pools(self, offset: int = 0, limit: int = 50) -> str:
         pools = []
-        for pid in self.pool_ids:
+        total = len(self.pool_ids)
+        lim = min(max(int(limit), 1), 50)
+        off = max(int(offset), 0)
+        end = min(off + lim, total)
+        for i in range(off, end):
+            pid = self.pool_ids[i]
             pool = self._get_pool(pid)
             if pool:
                 pools.append(pool)
         return json.dumps(pools)
 
     @gl.public.view
-    def get_all_markets(self) -> str:
+    def get_all_markets(self, offset: int = 0, limit: int = 50) -> str:
         markets_list = []
-        for mid in self.market_ids:
+        total = len(self.market_ids)
+        lim = min(max(int(limit), 1), 50)
+        off = max(int(offset), 0)
+        end = min(off + lim, total)
+        for i in range(off, end):
+            mid = self.market_ids[i]
             m = self._get_market(mid)
             if m:
                 # Format to match useGenLayer.tsx SpeculativeMarket interface:
@@ -1066,12 +1076,17 @@ Output a JSON with exactly two fields:
         return True
 
     @gl.public.view
-    def fetch_all_proposals(self) -> str:
+    def fetch_all_proposals(self, offset: int = 0, limit: int = 50) -> str:
         """
-        Retrieves all proposals for external React/Next.js frontend consumption.
+        Retrieves all proposals for external React/Next.js frontend consumption with Pagination.
         """
         out = []
-        for pid in self.proposal_ids:
+        total = len(self.proposal_ids)
+        lim = min(max(int(limit), 1), 50)
+        off = max(int(offset), 0)
+        end = min(off + lim, total)
+        for i in range(off, end):
+            pid = self.proposal_ids[i]
             p = self.proposals[pid]
             out.append({
                 "proposal_id": p.proposal_id,

@@ -439,7 +439,7 @@ export const useGenLayer = () => {
           const result = await (client as any).readContract({
               address: contractAddress,
               functionName: 'fetch_all_proposals',
-              args: []
+              args: [0, 50] // Pagination: offset=0, limit=50
           });
 
           if (result) {
@@ -450,7 +450,7 @@ export const useGenLayer = () => {
           const poolsResult = await (client as any).readContract({
               address: contractAddress,
               functionName: 'get_all_pools',
-              args: []
+              args: [0, 50] // Pagination: offset=0, limit=50
           });
           
           if (poolsResult) {
@@ -461,7 +461,7 @@ export const useGenLayer = () => {
           const marketsResult = await (client as any).readContract({
               address: contractAddress,
               functionName: 'get_all_markets',
-              args: []
+              args: [0, 50] // Pagination: offset=0, limit=50
           });
           
           if (marketsResult) {
