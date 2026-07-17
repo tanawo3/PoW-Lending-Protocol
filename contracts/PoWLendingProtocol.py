@@ -155,11 +155,13 @@ class PoWLendingProtocol(gl.Contract):
             return fallback
 
     def _get_borrower(self, address: str) -> dict:
-        raw = self.borrowers.get(address, "")
+        addr = address.lower()
+        raw = self.borrowers.get(addr, "")
         return self._loads(raw, {})
 
     def _save_borrower(self, address: str, profile: dict) -> None:
-        self.borrowers[address] = json.dumps(profile)
+        addr = address.lower()
+        self.borrowers[addr] = json.dumps(profile)
 
     def _get_pool(self, pool_id: str) -> dict:
         return self._loads(self.pools.get(pool_id), {})
