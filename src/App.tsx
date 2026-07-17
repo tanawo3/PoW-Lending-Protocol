@@ -143,24 +143,30 @@ export default function App() {
 
       <div className="w-full flex flex-col min-h-[100dvh] relative z-10">
         
-        <AnimatePresence>
-          {error && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="bg-[#da3d3d] text-white border-b border-[#080807] overflow-hidden"
-            >
-              <div className="px-6 py-3 flex items-start gap-4">
-                <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <p className="text-sm font-mono leading-relaxed flex-1">{error}</p>
-                <button onClick={() => setError(null)} className="hover:opacity-70 transition-opacity">
-                  <XCircle className="w-4 h-4" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Error Toast Notification */}
+        <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
+          <AnimatePresence>
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                className="bg-[#da3d3d] text-white border border-red-900 shadow-2xl overflow-hidden min-w-[300px] max-w-md pointer-events-auto"
+              >
+                <div className="px-5 py-4 flex items-start gap-4">
+                  <XCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-200" />
+                  <div className="flex-1">
+                    <h4 className="font-mono text-xs uppercase tracking-widest text-red-200 mb-1">Transaction Error</h4>
+                    <p className="text-sm font-sans font-medium leading-relaxed">{error}</p>
+                  </div>
+                  <button onClick={() => setError(null)} className="hover:opacity-70 transition-opacity ml-2">
+                    <XCircle className="w-4 h-4 text-red-200" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         <main className="flex-1 w-full flex flex-col">
           <AnimatePresence mode="wait">
