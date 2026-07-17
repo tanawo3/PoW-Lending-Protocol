@@ -35,6 +35,12 @@ ERROR_EXTERNAL = "[EXTERNAL]"    # Deterministic external oracle failure
 ERROR_TRANSIENT = "[TRANSIENT]"  # Non-deterministic network partition
 ERROR_LLM = "[LLM_ERROR]"        # Consensus breakdown or prompt hallucination
 
+try:
+    from genlayer import allow_storage
+except ImportError:
+    def allow_storage(cls):
+        return cls
+
 @allow_storage
 @dataclass
 class PoWSubmission:
@@ -1175,8 +1181,11 @@ Output a JSON with exactly two fields:
     def resolve_market(self, market_id: str, actual_outcome: str) -> None:
         """
         Resolves the market and pays out winners.
-        Can only be called by the protocol (simulated here with an open endpoint for PoC).
+        Can only be called by the protocol owner.
         """
+        if str(gl.message.sender_address) != self.owner:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
+            
         market = self._get_market(market_id)
         if market == {}:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Market not found")
