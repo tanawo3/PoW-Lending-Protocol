@@ -2,6 +2,7 @@
 
 import json
 import re
+from __future__ import annotations
 from dataclasses import dataclass
 from genlayer import *
 
