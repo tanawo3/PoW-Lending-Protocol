@@ -218,7 +218,13 @@ export const useGenLayer = () => {
   const txTypesRef = useRef<Record<string, string>>({});
 
   const waitTx = async (hash: string, activeClient: any) => {
-    const receipt = await activeClient.waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+    let receipt;
+    try {
+      receipt = await activeClient.waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+    } catch (e: any) {
+      updateTxStatus(hash, 'failed', e.message);
+      throw e;
+    }
     
     const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0] || receipt?.data?.consensus_data?.leader_receipt?.[0] || receipt?.leader_receipt;
     const executionResult = leaderReceipt?.execution_result || receipt?.txExecutionResultName || receipt?.resultName;
@@ -242,6 +248,7 @@ export const useGenLayer = () => {
       else if (receipt?.error) errMsg = receipt.error;
       else if (receipt?.error_message) errMsg = receipt.error_message;
       
+      updateTxStatus(hash, 'failed', errMsg);
       throw new Error(errMsg);
     }
     return receipt;
