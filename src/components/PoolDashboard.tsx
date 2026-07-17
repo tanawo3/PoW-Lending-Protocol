@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Tooltip } from './Tooltip';
 import { useGenLayer } from '../hooks/useGenLayer';
 import { PlusCircle, DollarSign, Activity, Lock, Unlock, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -65,7 +66,7 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                   </h3>
                   <span className="font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase mb-1">LP-01</span>
                 </div>
-                <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Create a new liquidity pool for lenders. Define the risk parameters and target yield. Borrowers whose credit score meets your criteria will be matched to your pool.</p>
+                <Tooltip content="Create a new liquidity pool for lenders. Define the risk parameters and target yield. Borrowers whose credit score meets your criteria will be matched to your pool." />
               </div>
 
               <form onSubmit={handleCreatePool} className="flex flex-col gap-6">
@@ -77,25 +78,22 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                       <div className="w-11 h-6 bg-[var(--border-light)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--text-main)]"></div>
                     </label>
                   </div>
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Enable 'Targeted Pool' to define custom AI-interpreted criteria instead of fixed risk tiers. The AI will match borrowers based on natural language rules you specify.</p>
+                  <Tooltip content="Enable 'Targeted Pool' to define custom AI-interpreted criteria instead of fixed risk tiers. The AI will match borrowers based on natural language rules you specify." />
                 </div>
 
                 <div className="flex flex-col gap-2 relative">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Pool Name</label>
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Give your pool a memorable name (e.g. 'Alpha Yield', 'DeFi Builders Fund').</p>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Pool Name <Tooltip content="Give your pool a memorable name (e.g. 'Alpha Yield', 'DeFi Builders Fund')." /></label>
                   <input type="text" value={newPoolName} onChange={e => setNewPoolName(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="e.g. Alpha Yield" required />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2 relative">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Target Return (BPS)</label>
-                    <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Expected annual return in basis points. 500 BPS = 5.00% APY.</p>
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Target Return (BPS) <Tooltip content="Expected annual return in basis points. 500 BPS = 5.00% APY." /></label>
                     <input type="number" value={targetReturn} onChange={e => setTargetReturn(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-lg font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="500" required />
                   </div>
                   {!isTargeted && (
                       <div className="flex flex-col gap-2 relative">
-                        <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Min Credit Score</label>
-                        <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Minimum AI-assigned credit score (0-10000) required for borrowers to access this pool.</p>
+                        <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Min Credit Score <Tooltip content="Minimum AI-assigned credit score (0-10000) required for borrowers to access this pool." /></label>
                         <input type="number" value={minCredit} onChange={e => setMinCredit(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-lg font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="700" required />
                       </div>
                   )}
@@ -104,14 +102,12 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                 {!isTargeted ? (
                     <>
                         <div className="flex flex-col gap-2 relative">
-                          <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Max Loan Amount</label>
-                          <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Maximum loan amount (in Wei) that can be borrowed from this pool per proposal.</p>
+                          <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Max Loan Amount <Tooltip content="Maximum loan amount (in Wei) that can be borrowed from this pool per proposal." /></label>
                           <input type="number" value={maxLoan} onChange={e => setMaxLoan(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-lg font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="5000" required />
                         </div>
 
                         <div className="flex flex-col gap-2 relative">
-                          <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Risk Tier</label>
-                          <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Risk classification determines the pool's exposure profile. Higher risk = higher potential yield.</p>
+                          <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Risk Tier <Tooltip content="Risk classification determines the pool's exposure profile. Higher risk = higher potential yield." /></label>
                           <select value={riskTier} onChange={e => setRiskTier(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] py-3 px-4 text-sm font-mono uppercase text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none cursor-pointer">
                             <option value="LOW">Low Risk</option>
                             <option value="MEDIUM">Medium Risk</option>
@@ -123,8 +119,7 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                     <div className="flex flex-col gap-2 relative">
                       <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2 text-purple-400">
                         Target Criteria (AI Interpreted)
-                      </label>
-                      <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Describe your ideal borrower in natural language. The AI will interpret and enforce these criteria during loan evaluation.</p>
+                       <Tooltip content="Describe your ideal borrower in natural language. The AI will interpret and enforce these criteria during loan evaluation." /></label>
                       <textarea value={criteria} onChange={e => setCriteria(e.target.value)} className="w-full bg-transparent border border-[var(--border-light)] p-4 text-sm font-mono text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-purple-500 focus:outline-none transition-all rounded-none resize-none h-24" placeholder="e.g. Must have >500 GitHub Stars and an open-source Next.js repository." required />
                     </div>
                 )}
@@ -147,8 +142,7 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                 </h3>
                 <span className="font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase">
                   Total {genLayer.pools.length} Pools
-                </span>
-                <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">All deployed liquidity pools with real-time stats. Click 'Rebalance Macro Risk' to update the global risk index using live market data (BTC price + Fear &amp; Greed Index).</p>
+                 <Tooltip content="All deployed liquidity pools with real-time stats. Click 'Rebalance Macro Risk' to update the global risk index using live market data (BTC price + Fear &amp; Greed Index)." /></span>
             </div>
             
             <button 
@@ -167,7 +161,7 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                     <span className="text-orange-500">GLOBAL RISK INDEX</span>
                     <span className="text-[var(--text-main)]">{(genLayer.macroRisk.global_risk_bps / 100).toFixed(2)}%</span>
                 </div>
-                <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">This index is computed by AI consensus using live data from CoinGecko (BTC price) and Alternative.me (Fear &amp; Greed Index).</p>
+                <Tooltip content="This index is computed by AI consensus using live data from CoinGecko (BTC price) and Alternative.me (Fear &amp; Greed Index)." />
                 <div className="text-xs leading-relaxed border-t border-[var(--border-light)] pt-2">
                     <span className="text-[var(--text-main)]">AI REASONING: </span>
                     {genLayer.macroRisk.macro_risk_reasoning}
@@ -236,8 +230,7 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                       <div className="bg-[var(--bg-primary)] p-6 border border-[var(--border-light)]">
                         <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2 mb-1">
                           <PlusCircle className="w-3 h-3" /> Provide Liquidity
-                        </label>
-                        <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Enter the amount of GEN tokens (in Wei) to deposit into this pool. Your deposit earns the target yield rate.</p>
+                         <Tooltip content="Enter the amount of GEN tokens (in Wei) to deposit into this pool. Your deposit earns the target yield rate." /></label>
                         <div className="flex gap-4">
                           <input 
                             type="number" 
@@ -260,8 +253,7 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                       <div className="bg-[var(--bg-primary)] p-6 border border-[var(--border-light)]">
                         <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2 mb-1">
                           <Unlock className="w-3 h-3" /> Withdraw Liquidity
-                        </label>
-                        <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Withdraw your deposited GEN tokens from this pool. You can only withdraw up to your deposited balance.</p>
+                         <Tooltip content="Withdraw your deposited GEN tokens from this pool. You can only withdraw up to your deposited balance." /></label>
                         <div className="flex gap-4">
                           <input 
                             type="number" 

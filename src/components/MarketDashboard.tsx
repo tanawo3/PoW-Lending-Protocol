@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Tooltip } from './Tooltip';
 import { useGenLayer } from '../hooks/useGenLayer';
 import { TrendingUp, TrendingDown, RefreshCw, BarChart2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,8 +19,7 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
         <div>
           <h3 className="font-display font-bold text-3xl uppercase tracking-tighter text-[var(--text-main)] leading-none flex items-center gap-3">
             <BarChart2 className="w-8 h-8" /> Prediction Markets
-          </h3>
-          <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Create a prediction market where users can bet on whether a specific loan will default. The outcome is resolved by the protocol admin based on actual loan performance.</p>
+           <Tooltip content="Create a prediction market where users can bet on whether a specific loan will default. The outcome is resolved by the protocol admin based on actual loan performance." /></h3>
         </div>
         <span className="font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase">
           {genLayer.markets.length} Active Markets
@@ -32,7 +32,7 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="col-span-full p-12 border border-dashed border-[var(--border-light)] flex flex-col items-center justify-center text-center gap-4 bg-[var(--bg-secondary)]">
               <BarChart2 className="w-8 h-8 text-[var(--border-light)]" />
               <p className="font-mono text-sm text-[var(--text-muted)] uppercase tracking-widest">No prediction markets active.</p>
-              <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">No prediction markets active. Create one to let users speculate on loan outcomes.</p>
+              <Tooltip content="No prediction markets active. Create one to let users speculate on loan outcomes." />
             </motion.div>
           ) : (
             genLayer.markets.map((market, idx) => {
@@ -53,7 +53,7 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
                   <div className="mb-6">
                     <span className="font-mono text-xs uppercase tracking-widest text-[var(--text-muted)] block mb-2">{market.market_id}</span>
                     <h4 className="font-display font-bold text-xl leading-tight text-[var(--text-main)]">{market.question}</h4>
-                    <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Phrase your market as a yes/no question (e.g. 'Will LOAN-001 default within 30 days?').</p>
+                    <Tooltip content="Phrase your market as a yes/no question (e.g. 'Will LOAN-001 default within 30 days?')." />
                   </div>
 
                   <div className="flex flex-col gap-4 mb-6">
@@ -92,7 +92,7 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
                           >
                             <TrendingUp className="w-3 h-3" /> Bet Repay
                           </button>
-                          <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Bet GEN tokens that the outcome will be YES (e.g. the loan WILL default).</p>
+                          <Tooltip content="Bet GEN tokens that the outcome will be YES (e.g. the loan WILL default)." />
                         </div>
                         <div className="flex-1 flex flex-col">
                           <button 
@@ -102,11 +102,11 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
                           >
                             <TrendingDown className="w-3 h-3" /> Bet Default
                           </button>
-                          <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Bet GEN tokens that the outcome will be NO (e.g. the loan will NOT default).</p>
+                          <Tooltip content="Bet GEN tokens that the outcome will be NO (e.g. the loan will NOT default)." />
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 mt-2">
-                        <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Admin only. Resolve the market with the actual outcome. Winning bettors receive proportional payouts from the losing pool.</p>
+                        <Tooltip content="Admin only. Resolve the market with the actual outcome. Winning bettors receive proportional payouts from the losing pool." />
                         <div className="flex gap-2">
                           <button 
                             onClick={() => genLayer.resolveMarket(market.market_id, "REPAID")}

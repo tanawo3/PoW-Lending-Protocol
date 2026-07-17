@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Tooltip } from './Tooltip';
 import { useGenLayer } from '../hooks/useGenLayer';
 import { Send, RefreshCw, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -191,53 +192,45 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                 <h3 className="font-display font-bold text-3xl uppercase tracking-tighter text-[var(--text-main)] leading-none">Inject Payload</h3>
                 <span className="font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase mb-1">001</span>
               </div>
-              <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Submit a loan request to the GenLayer network. Fill in your wallet metrics and paste a GitHub repository URL as evidence. The AI will evaluate your proof-of-work and creditworthiness.</p>
+              <Tooltip content="Submit a loan request to the GenLayer network. Fill in your wallet metrics and paste a GitHub repository URL as evidence. The AI will evaluate your proof-of-work and creditworthiness." />
 
               <form onSubmit={handleSubmitProposal} className="flex flex-col gap-8">
                 <div className="flex flex-col gap-2 relative">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Request ID</label>
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Unique identifier for your loan (e.g. LOAN-001)</p>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Request ID <Tooltip content="Unique identifier for your loan (e.g. LOAN-001)" /></label>
                   <input type="text" value={proposalId} onChange={e => setProposalId(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="REQ-001" required />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">USDC Allocation</label>
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Amount in USD you wish to borrow</p>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">USDC Allocation <Tooltip content="Amount in USD you wish to borrow" /></label>
                   <input type="number" value={requestedAmount} onChange={e => setRequestedAmount(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1000" required />
                 </div>
                 <div className="flex gap-4">
                   <div className="flex flex-col gap-2 flex-1">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">GitHub PRs</label>
-                    <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Number of merged pull requests on GitHub</p>
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">GitHub PRs <Tooltip content="Number of merged pull requests on GitHub" /></label>
                     <input type="number" value={githubContributions} onChange={e => setGithubContributions(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="0" />
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">DAO Votes</label>
-                    <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Number of governance votes you've participated in</p>
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">DAO Votes <Tooltip content="Number of governance votes you've participated in" /></label>
                     <input type="number" value={daoVotes} onChange={e => setDaoVotes(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="0" />
                   </div>
                 </div>
                 
                 <div className="flex gap-4">
                   <div className="flex flex-col gap-2 flex-1">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Wallet Age (Days)</label>
-                    <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">How long your wallet has been active (days)</p>
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Wallet Age (Days) <Tooltip content="How long your wallet has been active (days)" /></label>
                     <input type="number" value={walletAgeDays} onChange={e => setWalletAgeDays(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="365" />
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Total Tx</label>
-                    <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Total on-chain transactions from your wallet</p>
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Total Tx <Tooltip content="Total on-chain transactions from your wallet" /></label>
                     <input type="number" value={totalTx} onChange={e => setTotalTx(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="50" />
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Avg Bal ($)</label>
-                    <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Average balance held in your wallet (USD)</p>
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Avg Bal ($) <Tooltip content="Average balance held in your wallet (USD)" /></label>
                     <input type="number" value={avgBalance} onChange={e => setAvgBalance(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1500" />
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Collateral Amount (GEN Wei)</label>
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">GEN tokens to lock as collateral (in Wei). Optional for undercollateralized loans.</p>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Collateral Amount (GEN Wei) <Tooltip content="GEN tokens to lock as collateral (in Wei). Optional for undercollateralized loans." /></label>
                   <input type="number" value={collateralAmount} onChange={e => setCollateralAmount(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="Enter collateral amount..." />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -251,8 +244,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Evidence Payload</label>
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Paste a GitHub repository URL (e.g. https://github.com/user/repo). The AI will fetch and evaluate your code quality.</p>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Evidence Payload <Tooltip content="Paste a GitHub repository URL (e.g. https://github.com/user/repo). The AI will fetch and evaluate your code quality." /></label>
                   <textarea value={powSubmission} onChange={e => setPowSubmission(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] p-5 text-sm font-medium text-[var(--text-main)] placeholder-[var(--text-muted)] focus:border-[var(--text-main)] focus:outline-none transition-all resize-none h-32 rounded-none mt-2" placeholder="Describe the proof of work..." required />
                 </div>
                 
@@ -351,7 +343,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                       <div className="pt-8 border-t border-[var(--text-main)]">
                         {prop.status === 'PENDING' ? (
                           <div className="flex flex-col gap-6">
-                            <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Click to trigger the AI evaluation. The validator network will assess your proof-of-work and determine your credit score.</p>
+                            <Tooltip content="Click to trigger the AI evaluation. The validator network will assess your proof-of-work and determine your credit score." />
                             <div className="flex gap-4">
                               <button 
                                 onClick={() => handleEvaluate(prop.proposal_id)}
@@ -372,7 +364,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                             </div>
                             
                             <div className="mt-4 border border-[var(--border-light)] p-6 bg-[var(--bg-primary)] flex flex-col gap-4">
-                              <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Vouch for this borrower by explaining why their payload is legitimate. The AI will score your rationale and boost the borrower's reputation.</p>
+                              <Tooltip content="Vouch for this borrower by explaining why their payload is legitimate. The AI will score your rationale and boost the borrower's reputation." />
                               <div className="flex flex-col sm:flex-row gap-4 items-end">
                               <div className="flex-grow w-full">
                                 <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Social Vouching Rationale</label>
@@ -415,7 +407,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
 
                             {prop.status === 'REJECTED' && (
                               <div className="mt-4 border border-red-900/30 p-6 bg-[var(--bg-primary)] flex flex-col gap-4">
-                                <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Your loan was rejected. Submit additional evidence to appeal. The AI Supreme Court will re-evaluate your case with fresh reasoning.</p>
+                                <Tooltip content="Your loan was rejected. Submit additional evidence to appeal. The AI Supreme Court will re-evaluate your case with fresh reasoning." />
                                 <div>
                                   <label className="font-mono text-[10px] uppercase tracking-widest text-red-500 flex items-center gap-2"><XCircle className="w-3 h-3"/> AI Supreme Court (Appeal)</label>
                                   <input type="text" value={disputeEvidence[prop.proposal_id] || ''} onChange={e => setDisputeEvidence({...disputeEvidence, [prop.proposal_id]: e.target.value})} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-red-500 focus:outline-none transition-all rounded-none mt-2" placeholder="Provide appeal justification..." />
@@ -442,7 +434,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                             
                             {prop.status === 'APPROVED' && (
                               <div className="flex flex-col gap-4 mt-4">
-                                <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Repay the full loan amount plus interest to close this position and improve your repayment score.</p>
+                                <Tooltip content="Repay the full loan amount plus interest to close this position and improve your repayment score." />
                                 <div className="flex flex-col sm:flex-row gap-4">
                                 <button 
                                   onClick={() => genLayer.repayLoan(prop.proposal_id, BigInt(prop.debt || 0))}
@@ -466,8 +458,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                             <div className="mt-6 pt-6 border-t border-[var(--border-light)] flex flex-col gap-4">
                               <span className="font-mono text-[var(--text-main)] font-bold text-[10px] uppercase tracking-widest block border-b border-[var(--text-main)] pb-2 w-max">
                                 Encrypted Evidence (ZKP)
-                              </span>
-                              <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Submit zero-knowledge proof evidence for private verification. Use 'Reveal Agreement' to disclose evidence to the counterparty.</p>
+                               <Tooltip content="Submit zero-knowledge proof evidence for private verification. Use 'Reveal Agreement' to disclose evidence to the counterparty." /></span>
                               <div className="flex flex-col sm:flex-row gap-4">
                                 <input type="text" value={evidenceId[prop.proposal_id] || ''} onChange={e => setEvidenceId({...evidenceId, [prop.proposal_id]: e.target.value})} className="flex-1 bg-transparent border-b border-[var(--border-light)] py-2 text-sm text-[var(--text-main)] focus:outline-none" placeholder="Evidence ID..." />
                                 <input type="text" value={zkHash[prop.proposal_id] || ''} onChange={e => setZkHash({...zkHash, [prop.proposal_id]: e.target.value})} className="flex-1 bg-transparent border-b border-[var(--border-light)] py-2 text-sm text-[var(--text-main)] focus:outline-none" placeholder="ZK Proof Hash..." />
@@ -520,11 +511,11 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
               </div>
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="flex flex-col">
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Enter an APPROVED proposal ID to calculate the mathematical default probability based on risk scores. This is a read-only operation — no transaction is sent.</p>
+                  <Tooltip content="Enter an APPROVED proposal ID to calculate the mathematical default probability based on risk scores. This is a read-only operation — no transaction is sent." />
                   <button onClick={async () => setAdminOutput(String(await genLayer.simulateDefault(adminInput)))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Simulate Default</button>
                 </div>
                 <div className="flex flex-col">
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">⚠️ WRITE OPERATION: Permanently marks an approved loan as defaulted. This penalizes the borrower's reputation score. Admin only.</p>
+                  <Tooltip content="⚠️ WRITE OPERATION: Permanently marks an approved loan as defaulted. This penalizes the borrower's reputation score. Admin only." />
                   <button onClick={async () => {
                     try {
                       await genLayer.markDefault(adminInput);
@@ -535,7 +526,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                   }} className="px-4 py-2 border border-[#ff3333] text-[#ff3333] text-[10px] font-mono uppercase hover:bg-[#ff3333] hover:text-black">Mark Default</button>
                 </div>
                 <div className="flex flex-col">
-                  <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Check if a node meets the protocol's minimum compliance requirements. Read-only.</p>
+                  <Tooltip content="Check if a node meets the protocol's minimum compliance requirements. Read-only." />
                   <button onClick={async () => setAdminOutput(String(await genLayer.verifyNodeCompliance(adminInput)))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Verify Node</button>
                 </div>
               </div>
