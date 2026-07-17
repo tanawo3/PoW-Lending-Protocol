@@ -120,6 +120,7 @@ class PoWLendingProtocol(gl.Contract):
     borrowers: TreeMap[str, str]
     state: ProtocolState
     owner: str
+    treasury_balance: u256
 
     def __init__(self):
         """
@@ -134,8 +135,8 @@ class PoWLendingProtocol(gl.Contract):
         self.state.total_capital_requested = u256(0)
         self.state.total_capital_approved = u256(0)
         self.state.global_risk_index_bps = u256(0)
-        self.state.global_risk_index_bps = u256(0)
         self.pool_counter = u256(0)
+        self.treasury_balance = u256(0)
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
