@@ -345,8 +345,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_proposal',
-              args: [proposal_id, address, requested_amount, pow_submission, wallet_age_days, total_transactions, avg_balance_usd, target_pool_id],
-              value: value
+              args: [pow_submission, requested_amount, target_pool_id]
           });
           
           addTx({
@@ -506,7 +505,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'create_pool',
-              args: [name, target_return_bps, min_credit_score, max_loan_amount_wei, risk_tier, ""]
+              args: [name, target_return_bps, max_loan_amount_wei]
           });
           addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
@@ -557,7 +556,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_identity_verification',
-              args: [documentHash, selfieHash, proofOfAddressHash]
+              args: [documentHash]
           });
           addTx({ hash, type: 'submit_identity_verification', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
@@ -605,7 +604,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_encrypted_evidence',
-              args: [proposal_id, evidence_id, zk_proof_hash]
+              args: [proposal_id, zk_proof_hash]
           });
           addTx({ hash, type: 'submit_encrypted_evidence', proposal_id, status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
@@ -616,7 +615,7 @@ export const useGenLayer = () => {
       }
   };
 
-  const revealAgreement = async (proposal_id: string, evidence_id: string) => {
+  const revealAgreement = async (proposal_id: string, plaintext: string) => {
       if (!contractAddress) return;
       setIsEvaluating(true);
       setError(null);
@@ -627,7 +626,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'reveal_agreement',
-              args: [proposal_id, evidence_id]
+              args: [proposal_id, plaintext, "salt_123"]
           });
           addTx({ hash, type: 'reveal_agreement', proposal_id, status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
@@ -662,7 +661,7 @@ export const useGenLayer = () => {
       }
   };
 
-  const resolveMarket = async (market_id: string) => {
+  const resolveMarket = async (market_id: string, outcome_yes: boolean) => {
       if (!contractAddress) return;
       setIsEvaluating(true);
       setError(null);
@@ -673,7 +672,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'resolve_market',
-              args: [market_id]
+              args: [market_id, outcome_yes]
           });
           addTx({ hash, type: 'resolve_market', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
