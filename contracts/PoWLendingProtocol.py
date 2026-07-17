@@ -420,10 +420,12 @@ Output a JSON with exactly two fields:
 """
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
             if isinstance(analysis, str):
-                analysis = _clean_summary(analysis)
                 try:
                     parsed = json.loads(analysis)
-                    return json.dumps({"global_risk_bps": parsed.get("global_risk_bps", 5000), "reasoning": parsed.get("reasoning", "Parsed")})
+                    return json.dumps({
+                        "global_risk_bps": int(parsed.get("global_risk_bps", 5000)),
+                        "reasoning": _clean_summary(parsed.get("reasoning", "Parsed successfully."))
+                    })
                 except Exception:
                     pass
             return json.dumps({"global_risk_bps": 5000, "reasoning": "Parse failure"})
@@ -433,14 +435,18 @@ Output a JSON with exactly two fields:
                 return _handle_leader_error(leader_res, leader_fn)
             try:
                 data = json.loads(leader_res.calldata)
+                if isinstance(data, str): data = json.loads(data)
                 risk = int(data.get("global_risk_bps", 5000))
                 return 0 <= risk <= 10000
             except Exception:
                 return False
 
         result = gl.vm.run_nondet(leader_fn, validator_fn)
+        if not isinstance(result, gl.vm.Return):
+            raise gl.vm.UserError(f"{ERROR_LLM} Consensus Undetermined")
         try:
             data = json.loads(result.calldata)
+            if isinstance(data, str): data = json.loads(data)
             self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
             self.state.macro_risk_reasoning = str(data.get("reasoning", "No reasoning provided."))
         except Exception:
