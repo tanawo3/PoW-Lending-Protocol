@@ -1,29 +1,29 @@
 import sys
-import builtins
-import logging
-
 sys.path.append('contracts')
-
-class MockMessage:
-    def __init__(self):
-        self.sender_account = "0x1234567890abcdef1234567890abcdef12345678"
-        self.value = 0
 
 class MockGL:
     class evm:
-        def contract_interface(cls): return cls
+        def contract_interface(cls):
+            return cls
     class public:
-        def view(func): return func
+        def view(func):
+            return func
         class WriteDecorator:
-            def __call__(self, func): return func
-            def payable(self, func): return func
+            def __call__(self, func):
+                return func
+            def payable(self, func):
+                return func
         write = WriteDecorator()
-    message = MockMessage()
+    class message:
+        sender_address = "0x1234567890abcdef1234567890abcdef12345678"
     class nondet:
-        def invoke(self): return "invoked"
-    class contract: pass
+        def invoke(self):
+            return "invoked"
+    class contract:
+        pass
     Contract = object
 
+import builtins
 builtins.gl = MockGL()
 builtins.allow_storage = lambda x: x
 def u256(val): return val
@@ -39,6 +39,7 @@ class TreeMap:
 builtins.TreeMap = TreeMap
 
 class DummyModule: pass
+import sys
 genlayer_mod = DummyModule()
 genlayer_mod.gl = builtins.gl
 genlayer_mod.allow_storage = builtins.allow_storage
@@ -48,20 +49,11 @@ genlayer_mod.TreeMap = builtins.TreeMap
 sys.modules['genlayer'] = genlayer_mod
 
 import PoWLendingProtocol
+import logging
 
 try:
     contract = PoWLendingProtocol.PoWLendingProtocol()
-    print("1. Contract instantiated successfully!")
-    
-    # Assert _sender() works correctly with sender_account
-    assert contract.owner == "0x1234567890abcdef1234567890abcdef12345678", "_sender() failed!"
-    print("2. _sender() fallback logic passed.")
-    
-    # Assert flattened primitives
-    assert contract.total_loans == 0, "Flat state failed!"
-    print("3. Flattened primitive state passed.")
-    
-    print("ALL TESTS PASSED.")
+    print("Instantiation successful!")
 except Exception as e:
     print(f"Instantiation failed: {e}")
     logging.exception(e)

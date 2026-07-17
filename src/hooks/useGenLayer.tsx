@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getGenLayerClient, GLOBAL_CONTRACT_ADDRESS, GenLayerNetwork } from '../utils/networkConfig';
 import contractCode from '../../contracts/PoWLendingProtocol.py?raw';
-import { ToastMessage, ToastType } from '../components/Toast';
 
 const stripErrorPrefix = (msg: string) => {
   if (!msg) return msg;
@@ -160,7 +159,7 @@ export const useGenLayer = () => {
   const [address, setAddress] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [contractAddress, setContractAddress] = useState<string>(
-    localStorage.getItem('POW_CONTRACT_ADDRESS_V3') || GLOBAL_CONTRACT_ADDRESS
+    localStorage.getItem('POW_CONTRACT_ADDRESS_V2') || GLOBAL_CONTRACT_ADDRESS
   );
   const [network, setNetwork] = useState<GenLayerNetwork>('studionet');
   const [networkName, setNetworkName] = useState<string>('Genlayer Studio Network');
@@ -175,26 +174,12 @@ export const useGenLayer = () => {
   const [recentTransactions, setRecentTransactions] = useState<GenTx[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  const addToast = useCallback((message: string, type: ToastType) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 5000);
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
   useEffect(() => {
     if (network === 'bradbury') setNetworkName('Genlayer Bradbury Testnet');
     else if (network === 'studionet') setNetworkName('Genlayer Studio Network');
     else setNetworkName('Genlayer Localnet');
 
-    setContractAddress(localStorage.getItem('POW_CONTRACT_ADDRESS_V3') || GLOBAL_CONTRACT_ADDRESS);
+    setContractAddress(localStorage.getItem('POW_CONTRACT_ADDRESS_V2') || GLOBAL_CONTRACT_ADDRESS);
     setError(null);
   }, [network, setContractAddress]);
 
@@ -248,6 +233,7 @@ export const useGenLayer = () => {
         try {
           await (client as any).connect(network);
         } catch (connErr: any) {
+          // Silent connect failure handling
         }
       }
       
@@ -264,29 +250,23 @@ export const useGenLayer = () => {
         timestamp: Date.now()
       });
       
-      const receipt: any = await (client as any).waitForTransactionReceipt({ hash });
-      if (receipt && receipt.status !== 'ACCEPTED') throw new Error(`Deploy reverted: ${receipt.status}`);
+      const receipt = await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
       const deployedAddress = findDeployedAddress(receipt, address);
 
       if (receipt && deployedAddress) {
           setContractAddress(deployedAddress);
-          localStorage.setItem('POW_CONTRACT_ADDRESS_V3', deployedAddress);
+          localStorage.setItem('POW_CONTRACT_ADDRESS_V2', deployedAddress);
           updateTxStatus(hash, 'success');
-          addToast("Contract deployed successfully", 'success');
       } else {
           updateTxStatus(hash, 'failed', 'Receipt did not contain contractAddress');
           setError("Smart contract deployment did not return a valid address. Check explorer or transaction status.");
-          addToast("Deployment failed", 'error');
       }
     } catch (e: any) {
-      const errorDetails = e?.message || e?.shortMessage || e?.details || String(e);
-      updateTxStatus('deploy_failed', 'failed', 'Error: ' + errorDetails);
-      setError("Failed to deploy contract. GenVM Error Trace: " + stripErrorPrefix(errorDetails));
-      addToast("Deployment failed", 'error');
+      setError(e.message || "Failed to deploy contract. Ensure your wallet is connected, set to correct chain ID, and has testnet GEN tokens.");
     } finally {
       setIsDeploying(false);
     }
-  }, [address, network, addTx, updateTxStatus, addToast]);
+  }, [address, network, addTx, updateTxStatus]);
 
   const fetchProposals = useCallback(async () => {
     if (!contractAddress || contractAddress === "") return;
@@ -300,7 +280,7 @@ export const useGenLayer = () => {
 
         const result = await (client as any).readContract({
             address: contractAddress,
-            functionName: 'get_all_proposals',
+            functionName: 'fetch_all_proposals',
             args: []
         });
 
@@ -343,7 +323,7 @@ export const useGenLayer = () => {
     }
   }, [contractAddress, address, network, networkName]);
   
-  const submitProposal = async (pow_submission: string, requested_amount: number, value: bigint, target_pool_id: string = "") => {
+  const submitProposal = async (proposal_id: string, requested_amount: number, pow_submission: string, wallet_age_days: number, total_transactions: number, avg_balance_usd: number, value: bigint, target_pool_id: string = "") => {
       if (!contractAddress) return;
       setError(null);
 
@@ -363,25 +343,23 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_proposal',
-              args: [pow_submission, requested_amount, target_pool_id],
+              args: [proposal_id, address, requested_amount, pow_submission, wallet_age_days, total_transactions, avg_balance_usd, target_pool_id],
               value: value
           });
           
           addTx({
             hash,
             type: 'submit_proposal',
+            proposal_id,
             status: 'pending',
             timestamp: Date.now()
           });
 
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast("Proposal submitted successfully!", 'success');
       } catch (e: any) {
           setError("Failed to send submit_proposal transaction: " + stripErrorPrefix(e.message));
-          addToast("Submission failed: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
@@ -412,6 +390,7 @@ export const useGenLayer = () => {
               try {
                   await (client as any).connect(network);
               } catch (connErr: any) {
+                  // Silent connect failure handling
               }
           }
 
@@ -430,14 +409,11 @@ export const useGenLayer = () => {
             timestamp: Date.now()
           });
 
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast("Proposal evaluated successfully!", 'success');
       } catch (e: any) {
           setError("Consensus execution failed: " + stripErrorPrefix(e.message));
-          addToast("Evaluation failed: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -460,14 +436,11 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'repay_loan', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast("Loan repaid successfully!", 'success');
       } catch (e: any) {
           setError("Failed to repay loan: " + stripErrorPrefix(e.message));
-          addToast("Repayment failed: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
@@ -485,19 +458,39 @@ export const useGenLayer = () => {
               args: [proposal_id, evidence]
           });
           addTx({ hash, type: 'appeal_loan_decision', proposal_id, status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast("Appeal submitted successfully!", 'success');
       } catch (e: any) {
           setError("Appeal failed: " + stripErrorPrefix(e.message));
-          addToast("Appeal failed: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
   };
 
+  const aiVouch = async (proposal_id: string, rationale: string) => {
+      if (!contractAddress) return;
+      setIsEvaluating(true);
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'ai_vouch',
+              args: [proposal_id, rationale]
+          });
+          addTx({ hash, type: 'ai_vouch', proposal_id, status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Vouching failed: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
 
   const revokeProposal = async (proposal_id: string) => {
       if (!contractAddress) return;
@@ -513,8 +506,7 @@ export const useGenLayer = () => {
               args: [proposal_id]
           });
           addTx({ hash, type: 'revoke_proposal', proposal_id, status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -524,8 +516,76 @@ export const useGenLayer = () => {
       }
   };
 
+  const createPool = async (name: string, target_return_bps: number, min_credit_score: number, max_loan_amount_wei: number, risk_tier: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'create_pool',
+              args: [name, target_return_bps, min_credit_score, max_loan_amount_wei, risk_tier, ""]
+          });
+          addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to create pool: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
 
+  const createTargetedPool = async (name: string, target_return_bps: number, criteria: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'create_targeted_pool',
+              args: [name, target_return_bps, criteria]
+          });
+          addTx({ hash, type: 'create_targeted_pool', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Failed to create targeted pool: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
 
+  const rebalanceMacroRisk = async () => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'rebalance_macro_risk',
+              args: []
+          });
+          addTx({ hash, type: 'rebalance_macro_risk', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+      } catch (e: any) {
+          setError("Failed to rebalance macro risk: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
 
   const depositLiquidity = async (pool_id: string, amount: bigint) => {
       if (!contractAddress) return;
@@ -542,14 +602,11 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'deposit_liquidity', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast(`Successfully deposited ${Number(amount)/10**18} GEN`, 'success');
       } catch (e: any) {
           setError("Deposit failed: " + stripErrorPrefix(e.message));
-          addToast("Deposit failed: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -566,25 +623,20 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'withdraw_liquidity',
-              args: [pool_id, Number(amount)]
+              args: [pool_id, amount]
           });
           addTx({ hash, type: 'withdraw_liquidity', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast(`Successfully withdrew ${Number(amount)/10**18} GEN`, 'success');
       } catch (e: any) {
-          setError("Withdraw failed: " + stripErrorPrefix(e.message));
-          addToast("Withdraw failed: " + stripErrorPrefix(e.message), 'error');
+          setError("Withdrawal failed: " + stripErrorPrefix(e.message));
       } finally {
           setIsEvaluating(false);
       }
   };
 
-
-
-  const submitIdentityVerification = async (ipfsHash: string) => {
+  const submitIdentityVerification = async (documentHash: string, selfieHash: string, proofOfAddressHash: string) => {
       if (!contractAddress) return;
       setError(null);
       setIsEvaluating(true);
@@ -595,21 +647,61 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_identity_verification',
-              args: [ipfsHash]
+              args: [documentHash, selfieHash, proofOfAddressHash]
           });
           addTx({ hash, type: 'submit_identity_verification', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
-          addToast("Identity verified successfully!", 'success');
       } catch (e: any) {
           setError("Verification failed: " + stripErrorPrefix(e.message));
-          addToast("Verification failed: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
   };
 
+  const acceptConditionalOffer = async (proposalId: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'accept_conditional_offer',
+              args: [proposalId]
+          });
+          addTx({ hash, type: 'accept_conditional_offer', proposal_id: proposalId, status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+      } catch (e: any) {
+          setError("Accepting offer failed: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const withdrawProtocolFees = async (amount: bigint) => {
+      if (!contractAddress) return;
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'withdraw_protocol_fees',
+              args: [amount]
+          });
+          addTx({ hash, type: 'withdraw_protocol_fees', status: 'pending', timestamp: Date.now() });
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          updateTxStatus(hash, 'success');
+      } catch (e: any) {
+          setError("Withdrawal failed: " + stripErrorPrefix(e.message));
+      }
+  };
 
   const markDefault = async (proposal_id: string) => {
       if (!contractAddress) return;
@@ -625,21 +717,66 @@ export const useGenLayer = () => {
               args: [proposal_id]
           });
           addTx({ hash, type: 'mark_default', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
-          addToast("Proposal marked as default.", 'success');
       } catch (e: any) {
           setError("Failed to mark default: " + stripErrorPrefix(e.message));
-          addToast("Failed to mark default: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
   };
 
+  const healthCheck = async () => {
+      if (!contractAddress) return "Not connected";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'perform_health_check', args: [] });
+      } catch (e) {
+          return "Health check failed";
+      }
+  };
 
+  const exportSnapshot = async (offset: number, limit: number) => {
+      if (!contractAddress) return "Not connected";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'export_state_snapshot', args: [offset, limit] });
+      } catch (e) {
+          return "Snapshot export failed";
+      }
+  };
 
-  const submitEncryptedEvidence = async (proposal_id: string, encrypted_payload: string) => {
+  const getContractVersion = async () => {
+      if (!contractAddress) return "Unknown";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'get_contract_version', args: [] });
+      } catch (e) {
+          return "Unknown";
+      }
+  };
+
+  const getDeveloperMetadata = async () => {
+      if (!contractAddress) return "Unknown";
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'get_developer_metadata', args: [] });
+      } catch (e) {
+          return "Unknown";
+      }
+  };
+
+  const verifyNodeCompliance = async (node_id: string) => {
+      if (!contractAddress) return false;
+      try {
+          const client = getGenLayerClient(network, address);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'verify_node_compliance', args: [node_id] });
+      } catch (e) {
+          return false;
+      }
+  };
+
+  const submitEncryptedEvidence = async (proposal_id: string, evidence_id: string, zk_proof_hash: string) => {
       if (!contractAddress) return;
       setError(null);
       try {
@@ -649,21 +786,18 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_encrypted_evidence',
-              args: [proposal_id, encrypted_payload]
+              args: [proposal_id, evidence_id, zk_proof_hash]
           });
           addTx({ hash, type: 'submit_encrypted_evidence', proposal_id, status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast("Encrypted evidence submitted successfully!", 'success');
       } catch (e: any) {
           setError("Failed to submit encrypted evidence: " + stripErrorPrefix(e.message));
-          addToast("Failed to submit evidence: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
-  const revealAgreement = async (proposal_id: string, plaintext: string) => {
+  const revealAgreement = async (proposal_id: string, evidence_id: string) => {
       if (!contractAddress) return;
       setIsEvaluating(true);
       setError(null);
@@ -674,17 +808,14 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'reveal_agreement',
-              args: [proposal_id, plaintext, "salt_123"]
+              args: [proposal_id, evidence_id]
           });
           addTx({ hash, type: 'reveal_agreement', proposal_id, status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast("Agreement revealed successfully!", 'success');
       } catch (e: any) {
           setError("Failed to reveal agreement: " + stripErrorPrefix(e.message));
-          addToast("Failed to reveal agreement: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -704,18 +835,15 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'place_bet', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast("Bet placed successfully!", 'success');
       } catch (e: any) {
           setError("Failed to place bet: " + stripErrorPrefix(e.message));
-          addToast("Failed to place bet: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
-  const resolveMarket = async (market_id: string, outcome_yes: boolean) => {
+  const resolveMarket = async (market_id: string) => {
       if (!contractAddress) return;
       setIsEvaluating(true);
       setError(null);
@@ -726,43 +854,16 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'resolve_market',
-              args: [market_id, outcome_yes]
+              args: [market_id]
           });
           addTx({ hash, type: 'resolve_market', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
           updateTxStatus(hash, 'success');
           await fetchProposals();
-          addToast("Market resolved successfully!", 'success');
       } catch (e: any) {
           setError("Failed to resolve market: " + stripErrorPrefix(e.message));
-          addToast("Failed to resolve market: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
-      }
-  };
-
-  const createPool = async (name: string, risk_tolerance_bps: number, min_deposit: number) => {
-      if (!contractAddress) return;
-      setError(null);
-      try {
-          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
-          const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
-              address: contractAddress,
-              account: address ? { address } : undefined,
-              functionName: 'create_pool',
-              args: [name, risk_tolerance_bps, min_deposit]
-          });
-          addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
-          updateTxStatus(hash, 'success');
-          await fetchProposals();
-          addToast("Pool created successfully!", 'success');
-      } catch (e: any) {
-          setError("Failed to create pool: " + stripErrorPrefix(e.message));
-          addToast("Failed to create pool: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
@@ -785,11 +886,20 @@ export const useGenLayer = () => {
     repayLoan,
     revokeProposal,
     appealLoanDecision,
+    aiVouch,
     createPool,
     depositLiquidity,
     withdrawLiquidity,
     submitIdentityVerification,
+    acceptConditionalOffer,
+    withdrawProtocolFees,
     markDefault,
+    simulateDefault,
+    healthCheck,
+    exportSnapshot,
+    getContractVersion,
+    getDeveloperMetadata,
+    verifyNodeCompliance,
     submitEncryptedEvidence,
     revealAgreement,
     placeBet,
@@ -801,8 +911,7 @@ export const useGenLayer = () => {
     setError,
     setContractAddress,
     isDeploying,
-    toasts,
-    addToast,
-    removeToast
+    createTargetedPool,
+    rebalanceMacroRisk
   };
 };

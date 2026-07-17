@@ -43,16 +43,6 @@ export default defineConfig({
   build: {
     target: "es2020",
     outDir: "dist",
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
-          framer: ['framer-motion', 'motion'],
-          genlayer: ['genlayer-js']
-        }
-      }
-    }
   },
   resolve: {
     alias: {

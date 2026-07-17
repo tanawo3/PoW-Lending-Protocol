@@ -13,17 +13,15 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [criteria, setCriteria] = useState('');
 
   const [depositAmounts, setDepositAmounts] = useState<{ [id: string]: string }>({});
+  const [withdrawAmounts, setWithdrawAmounts] = useState<{ [id: string]: string }>({});
 
   const handleCreatePool = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isTargeted) {
         if (!newPoolName || !targetReturn || !criteria) return;
-        await genLayer.createPool(
+        await genLayer.createTargetedPool(
             newPoolName,
             parseInt(targetReturn, 10),
-            0,
-            0,
-            riskTier,
             criteria
         );
     } else {
@@ -135,6 +133,15 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                   Total {genLayer.pools.length} Pools
                 </span>
             </div>
+            
+            <button 
+                onClick={() => genLayer.rebalanceMacroRisk()}
+                disabled={genLayer.isFetching}
+                className="btn-monolog group flex items-center gap-2 border border-orange-500/50 bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-[var(--bg-secondary)] px-4 py-2 transition-colors disabled:opacity-50"
+            >
+                <TrendingUp className="w-4 h-4" />
+                <span className="text-[10px] tracking-widest uppercase font-mono font-bold">Rebalance Macro Risk</span>
+            </button>
           </div>
 
           <div className="flex flex-col gap-6">
@@ -195,7 +202,7 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {/* Deposit Section */}
-                      <div className="bg-[var(--bg-primary)] p-6 border border-[var(--border-light)] w-full">
+                      <div className="bg-[var(--bg-primary)] p-6 border border-[var(--border-light)]">
                         <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2 mb-4">
                           <PlusCircle className="w-3 h-3" /> Provide Liquidity
                         </label>
@@ -213,6 +220,29 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                             className="px-6 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase tracking-widest hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] whitespace-nowrap transition-colors disabled:opacity-50"
                           >
                             Deposit
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Withdraw Section */}
+                      <div className="bg-[var(--bg-primary)] p-6 border border-[var(--border-light)]">
+                        <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2 mb-4">
+                          <Unlock className="w-3 h-3" /> Withdraw Liquidity
+                        </label>
+                        <div className="flex gap-4">
+                          <input 
+                            type="number" 
+                            value={withdrawAmounts[pool.pool_id] || ''} 
+                            onChange={e => setWithdrawAmounts({...withdrawAmounts, [pool.pool_id]: e.target.value})}
+                            className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none" 
+                            placeholder="Amount in WEI..." 
+                          />
+                          <button 
+                            onClick={() => genLayer.withdrawLiquidity(pool.pool_id, parseInt(withdrawAmounts[pool.pool_id] || '0', 10))}
+                            disabled={!withdrawAmounts[pool.pool_id]}
+                            className="px-6 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase tracking-widest hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] whitespace-nowrap transition-colors disabled:opacity-50"
+                          >
+                            Withdraw
                           </button>
                         </div>
                       </div>

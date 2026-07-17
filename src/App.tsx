@@ -6,8 +6,6 @@ import { InitializationView } from './components/InitializationView';
 import { LoanDashboard } from './components/LoanDashboard';
 import { PoolDashboard } from './components/PoolDashboard';
 import { MarketDashboard } from './components/MarketDashboard';
-import { KYCDashboard } from './components/KYCDashboard';
-import { AdminDashboard } from './components/AdminDashboard';
 import { SplitText } from './components/SplitText';
 import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
@@ -15,7 +13,6 @@ import { FooterCTA } from './components/FooterCTA';
 import { CustomCursor } from './components/CustomCursor';
 import { BGMController } from './components/BGMController';
 import { AboutModal } from './components/AboutModal';
-import { ToastContainer } from './components/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from '@studio-freight/lenis';
 import { useState } from 'react';
@@ -34,9 +31,7 @@ export default function App() {
     deployContract,
     isDeploying,
     error,
-    setError,
-    toasts,
-    removeToast
+    setError
   } = genLayer;
 
   // Initialize smooth scroll (Lenis) exactly like Monolog
@@ -93,7 +88,6 @@ export default function App() {
       
       <CustomCursor />
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
 
       {/* Stark Navbar */}
       <motion.header 
@@ -246,10 +240,6 @@ export default function App() {
 
                 {/* Dashboard Grid */}
                 <div className="max-w-[1400px] mx-auto px-6 py-24">
-                  <AdminDashboard genLayer={genLayer} />
-
-                  <KYCDashboard genLayer={genLayer} />
-
                   <LoanDashboard genLayer={genLayer} />
                   
                   <PoolDashboard genLayer={genLayer} />

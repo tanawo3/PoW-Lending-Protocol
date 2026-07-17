@@ -36,21 +36,22 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   
   const handleSubmitProposal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requestedAmount || !powSubmission) return;
+    if (!proposalId || !requestedAmount || !powSubmission) return;
 
     const payloadObj = { evidence: powSubmission, github_contributions: githubContributions, dao_votes: daoVotes };
     const payloadStr = JSON.stringify(payloadObj);
     
     await genLayer.submitProposal(
-      payloadStr,
+      proposalId, 
       parseInt(requestedAmount, 10), 
-      BigInt(parseInt(collateralAmount || '0', 10) * 10**18),
-      targetPoolId || ""
+      payloadStr, 
+      parseInt(walletAgeDays, 10), 
+      parseInt(totalTx, 10), 
+      parseInt(avgBalance, 10), 
+      BigInt(collateralAmount),
+      targetPoolId
     );
-    setRequestedAmount('');
-    setPowSubmission('');
-    setGithubContributions('');
-    setDaoVotes('');
+    setProposalId(''); setRequestedAmount(''); setPowSubmission(''); setGithubContributions(''); setDaoVotes(''); setCollateralAmount('0'); setTargetPoolId('');
   };
 
   const handleEvaluate = async (id: string) => {
@@ -160,7 +161,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
         <motion.div variants={revealUp} className="p-12 md:p-16 flex flex-col justify-between min-h-[300px] bg-[var(--bg-primary)] group">
           <h4 className="font-mono text-sm uppercase tracking-[0.2em] text-[var(--text-muted)] mb-8 border-b border-[var(--border-light)] pb-4">Protocol Treasury</h4>
           <span className="font-display font-bold text-8xl lg:text-[10rem] leading-none text-[var(--text-main)] tracking-tighter">1% Fee</span>
-
+          <button onClick={() => genLayer.withdrawProtocolFees(BigInt(100))} className="mt-4 w-full py-2 border border-[var(--text-main)] text-[10px] uppercase font-mono hover:bg-[var(--text-main)] hover:text-white">Withdraw Fees (Admin)</button>
         </motion.div>
       </motion.div>
 
@@ -181,6 +182,11 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
               </div>
 
               <form onSubmit={handleSubmitProposal} className="flex flex-col gap-8">
+                <div className="flex flex-col gap-2 relative">
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Request ID</label>
+                  <input type="text" value={proposalId} onChange={e => setProposalId(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="REQ-001" required />
+                </div>
+
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">USDC Allocation</label>
                   <input type="number" value={requestedAmount} onChange={e => setRequestedAmount(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1000" required />
@@ -196,6 +202,24 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                   </div>
                 </div>
                 
+                <div className="flex gap-4">
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Wallet Age (Days)</label>
+                    <input type="number" value={walletAgeDays} onChange={e => setWalletAgeDays(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="365" />
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Total Tx</label>
+                    <input type="number" value={totalTx} onChange={e => setTotalTx(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="50" />
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Avg Bal ($)</label>
+                    <input type="number" value={avgBalance} onChange={e => setAvgBalance(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1500" />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Collateral Amount (GEN Wei)</label>
+                  <input type="number" value={collateralAmount} onChange={e => setCollateralAmount(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="Enter collateral amount..." />
+                </div>
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Target LP Pool (Optional)</label>
                   <select value={targetPoolId} onChange={e => setTargetPoolId(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] py-3 px-4 text-sm font-mono uppercase text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none cursor-pointer">
@@ -329,6 +353,14 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                                 <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Social Vouching Rationale</label>
                                 <input type="text" value={vouchRationale[prop.proposal_id] || ''} onChange={e => setVouchRationale({...vouchRationale, [prop.proposal_id]: e.target.value})} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="Explain why this payload is valid..." />
                               </div>
+                              <button 
+                                onClick={() => genLayer.aiVouch(prop.proposal_id, vouchRationale[prop.proposal_id] || '')}
+                                disabled={genLayer.isEvaluating || !vouchRationale[prop.proposal_id]}
+                                className="w-full sm:w-auto px-6 py-2 border border-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-all disabled:opacity-50"
+                              >
+                                {genLayer.isEvaluating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                Vouch
+                              </button>
                             </div>
                           </div>
                         ) : (
@@ -369,6 +401,16 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                                   {genLayer.isEvaluating ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Initiate Appeal"}
                                 </button>
                               </div>
+                            )}
+
+                            {prop.status === 'CONDITIONAL_OFFER' && (
+                              <button 
+                                onClick={() => genLayer.acceptConditionalOffer(prop.proposal_id)}
+                                disabled={genLayer.isEvaluating}
+                                className="w-full sm:w-auto self-start mt-4 px-6 py-3 bg-[var(--text-main)] text-[var(--bg-secondary)] hover:bg-[var(--card-dark)] flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50"
+                              >
+                                {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Accept AI Counter-Offer"}
+                              </button>
                             )}
                             
                             {prop.status === 'APPROVED' && (
@@ -433,7 +475,10 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
             </h3>
             
             <div className="flex flex-wrap gap-4 mb-8">
-
+              <button onClick={async () => setAdminOutput(await genLayer.healthCheck())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Health Check</button>
+              <button onClick={async () => setAdminOutput(await genLayer.getContractVersion())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Version</button>
+              <button onClick={async () => setAdminOutput(await genLayer.getDeveloperMetadata())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Dev Metadata</button>
+              <button onClick={async () => setAdminOutput(await genLayer.exportSnapshot(0, 100))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">State Snapshot</button>
             </div>
 
             <div className="flex flex-col gap-4 mb-8 border-t border-dashed border-[var(--text-main)] pt-6">
@@ -442,6 +487,8 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Param Input (Node ID or Proposal ID)</label>
                   <input type="text" value={adminInput} onChange={e => setAdminInput(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none" placeholder="Enter ID..." />
                 </div>
+                <button onClick={async () => setAdminOutput(await genLayer.simulateDefault(adminInput))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Simulate Default</button>
+                <button onClick={async () => setAdminOutput(String(await genLayer.verifyNodeCompliance(adminInput)))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Verify Node</button>
               </div>
             </div>
 
