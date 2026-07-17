@@ -128,14 +128,23 @@ class PoWLendingProtocol(gl.Contract):
         lookups, satisfying strict GenLayer performance constraints.
         """
         self.owner = str(gl.message.sender_address)
-        self.state.total_processed = u256(0)
-        self.state.total_approved = u256(0)
-        self.state.total_rejected = u256(0)
-        self.state.total_revoked = u256(0)
-        self.state.total_capital_requested = u256(0)
-        self.state.total_capital_approved = u256(0)
-        self.state.global_risk_index_bps = u256(0)
-        self.state.global_risk_index_bps = u256(0)
+        self.proposals = TreeMap()
+        self.proposal_ids = DynArray()
+        self.pools = TreeMap()
+        self.pool_ids = DynArray()
+        self.markets = TreeMap()
+        self.market_ids = DynArray()
+        self.balances = TreeMap()
+        self.borrowers = TreeMap()
+        self.state = ProtocolState(
+            total_processed=u256(0),
+            total_approved=u256(0),
+            total_rejected=u256(0),
+            total_revoked=u256(0),
+            total_capital_requested=u256(0),
+            total_capital_approved=u256(0),
+            global_risk_index_bps=u256(0)
+        )
         self.pool_counter = u256(0)
         self.treasury_balance = u256(0)
 
@@ -426,12 +435,8 @@ Output a JSON with exactly two fields:
                 return False
 
         result = gl.vm.run_nondet(leader_fn, validator_fn)
-        try:
-            data = result.calldata
-            if isinstance(data, dict):
-                self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
-        except Exception:
-            pass
+        if isinstance(result, dict):
+            self.state.global_risk_index_bps = u256(int(result.get("global_risk_bps", 5000)))
         return True
 
     @gl.public.write.payable
