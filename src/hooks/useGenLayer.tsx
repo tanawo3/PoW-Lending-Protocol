@@ -800,6 +800,7 @@ export const useGenLayer = () => {
           addTx({ hash, type: 'submit_identity_verification', status: 'pending', timestamp: Date.now() });
           await waitTx(hash, client);
           updateTxStatus(hash, 'success');
+          await fetchProposals();
       } catch (e: any) {
           setError("Verification failed: " + stripErrorPrefix(e.message));
       } finally {
