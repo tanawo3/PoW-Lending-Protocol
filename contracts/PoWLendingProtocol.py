@@ -286,14 +286,6 @@ class PoWLendingProtocol(gl.Contract):
 
     def __init__(self):
         self.owner = str(gl.message.sender_address)
-        self.proposals = TreeMap()
-        self.proposal_ids = DynArray()
-        self.pools = TreeMap()
-        self.pool_ids = DynArray()
-        self.markets = TreeMap()
-        self.market_ids = DynArray()
-        self.balances = TreeMap()
-        self.borrowers = TreeMap()
         self.state = ProtocolState(u256(0), u256(0), u256(0), u256(0), u256(0), u256(0), u256(0))
         self.pool_counter = u256(0)
         self.treasury_balance = u256(0)
