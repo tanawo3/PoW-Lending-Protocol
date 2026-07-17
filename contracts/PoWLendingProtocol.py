@@ -424,7 +424,7 @@ Output a JSON with exactly two fields:
             return json.dumps({"global_risk_bps": 5000, "reasoning": "Parse failure"})
 
         def validator_fn(leader_res: gl.vm.Result) -> bool:
-            if leader_res.error:
+            if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
                 data = json.loads(leader_res.calldata)
