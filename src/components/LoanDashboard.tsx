@@ -161,7 +161,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
         <motion.div variants={revealUp} className="p-12 md:p-16 flex flex-col justify-between min-h-[300px] bg-[var(--bg-primary)] group">
           <h4 className="font-mono text-sm uppercase tracking-[0.2em] text-[var(--text-muted)] mb-8 border-b border-[var(--border-light)] pb-4">Protocol Treasury</h4>
           <span className="font-display font-bold text-8xl lg:text-[10rem] leading-none text-[var(--text-main)] tracking-tighter">1% Fee</span>
-          <button onClick={() => genLayer.withdrawProtocolFees(BigInt(100))} className="mt-4 w-full py-2 border border-[var(--text-main)] text-[10px] uppercase font-mono hover:bg-[var(--text-main)] hover:text-white">Withdraw Fees (Admin)</button>
+
         </motion.div>
       </motion.div>
 
@@ -353,14 +353,6 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                                 <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Social Vouching Rationale</label>
                                 <input type="text" value={vouchRationale[prop.proposal_id] || ''} onChange={e => setVouchRationale({...vouchRationale, [prop.proposal_id]: e.target.value})} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="Explain why this payload is valid..." />
                               </div>
-                              <button 
-                                onClick={() => genLayer.aiVouch(prop.proposal_id, vouchRationale[prop.proposal_id] || '')}
-                                disabled={genLayer.isEvaluating || !vouchRationale[prop.proposal_id]}
-                                className="w-full sm:w-auto px-6 py-2 border border-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-all disabled:opacity-50"
-                              >
-                                {genLayer.isEvaluating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                                Vouch
-                              </button>
                             </div>
                           </div>
                         ) : (
@@ -401,16 +393,6 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                                   {genLayer.isEvaluating ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Initiate Appeal"}
                                 </button>
                               </div>
-                            )}
-
-                            {prop.status === 'CONDITIONAL_OFFER' && (
-                              <button 
-                                onClick={() => genLayer.acceptConditionalOffer(prop.proposal_id)}
-                                disabled={genLayer.isEvaluating}
-                                className="w-full sm:w-auto self-start mt-4 px-6 py-3 bg-[var(--text-main)] text-[var(--bg-secondary)] hover:bg-[var(--card-dark)] flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-widest transition-all disabled:opacity-50"
-                              >
-                                {genLayer.isEvaluating ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Accept AI Counter-Offer"}
-                              </button>
                             )}
                             
                             {prop.status === 'APPROVED' && (
@@ -475,10 +457,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
             </h3>
             
             <div className="flex flex-wrap gap-4 mb-8">
-              <button onClick={async () => setAdminOutput(await genLayer.healthCheck())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Health Check</button>
-              <button onClick={async () => setAdminOutput(await genLayer.getContractVersion())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Version</button>
-              <button onClick={async () => setAdminOutput(await genLayer.getDeveloperMetadata())} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Dev Metadata</button>
-              <button onClick={async () => setAdminOutput(await genLayer.exportSnapshot(0, 100))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">State Snapshot</button>
+
             </div>
 
             <div className="flex flex-col gap-4 mb-8 border-t border-dashed border-[var(--text-main)] pt-6">
@@ -488,7 +467,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                   <input type="text" value={adminInput} onChange={e => setAdminInput(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none" placeholder="Enter ID..." />
                 </div>
                 <button onClick={async () => setAdminOutput(await genLayer.simulateDefault(adminInput))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Simulate Default</button>
-                <button onClick={async () => setAdminOutput(String(await genLayer.verifyNodeCompliance(adminInput)))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Verify Node</button>
+
               </div>
             </div>
 

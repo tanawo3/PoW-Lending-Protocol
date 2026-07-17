@@ -705,19 +705,10 @@ export const useGenLayer = () => {
     repayLoan,
     revokeProposal,
     appealLoanDecision,
-    aiVouch,
     createPool,
     depositLiquidity,
-    withdrawLiquidity,
     submitIdentityVerification,
-    acceptConditionalOffer,
-    withdrawProtocolFees,
     markDefault,
-    healthCheck,
-    exportSnapshot,
-    getContractVersion,
-    getDeveloperMetadata,
-    verifyNodeCompliance,
     submitEncryptedEvidence,
     revealAgreement,
     placeBet,
@@ -728,8 +719,6 @@ export const useGenLayer = () => {
     networkName,
     setError,
     setContractAddress,
-    isDeploying,
-    createTargetedPool,
-    rebalanceMacroRisk
+    isDeploying
   };
 };
