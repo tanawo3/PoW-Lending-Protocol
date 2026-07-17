@@ -15,6 +15,7 @@ import { FooterCTA } from './components/FooterCTA';
 import { CustomCursor } from './components/CustomCursor';
 import { BGMController } from './components/BGMController';
 import { AboutModal } from './components/AboutModal';
+import { ToastContainer } from './components/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from '@studio-freight/lenis';
 import { useState } from 'react';
@@ -33,7 +34,9 @@ export default function App() {
     deployContract,
     isDeploying,
     error,
-    setError
+    setError,
+    toasts,
+    removeToast
   } = genLayer;
 
   // Initialize smooth scroll (Lenis) exactly like Monolog
@@ -90,6 +93,7 @@ export default function App() {
       
       <CustomCursor />
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
 
       {/* Stark Navbar */}
       <motion.header 

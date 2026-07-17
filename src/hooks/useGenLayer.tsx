@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getGenLayerClient, GLOBAL_CONTRACT_ADDRESS, GenLayerNetwork } from '../utils/networkConfig';
 import contractCode from '../../contracts/PoWLendingProtocol.py?raw';
+import { ToastMessage, ToastType } from '../components/Toast';
 
 const stripErrorPrefix = (msg: string) => {
   if (!msg) return msg;
@@ -174,6 +175,20 @@ export const useGenLayer = () => {
   const [recentTransactions, setRecentTransactions] = useState<GenTx[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = useCallback((message: string, type: ToastType) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   useEffect(() => {
     if (network === 'bradbury') setNetworkName('Genlayer Bradbury Testnet');
     else if (network === 'studionet') setNetworkName('Genlayer Studio Network');
@@ -233,7 +248,6 @@ export const useGenLayer = () => {
         try {
           await (client as any).connect(network);
         } catch (connErr: any) {
-          // Silent connect failure handling
         }
       }
       
@@ -258,18 +272,21 @@ export const useGenLayer = () => {
           setContractAddress(deployedAddress);
           localStorage.setItem('POW_CONTRACT_ADDRESS_V3', deployedAddress);
           updateTxStatus(hash, 'success');
+          addToast("Contract deployed successfully", 'success');
       } else {
           updateTxStatus(hash, 'failed', 'Receipt did not contain contractAddress');
           setError("Smart contract deployment did not return a valid address. Check explorer or transaction status.");
+          addToast("Deployment failed", 'error');
       }
     } catch (e: any) {
       const errorDetails = e?.message || e?.shortMessage || e?.details || String(e);
       updateTxStatus('deploy_failed', 'failed', 'Error: ' + errorDetails);
       setError("Failed to deploy contract. GenVM Error Trace: " + stripErrorPrefix(errorDetails));
+      addToast("Deployment failed", 'error');
     } finally {
       setIsDeploying(false);
     }
-  }, [address, network, addTx, updateTxStatus]);
+  }, [address, network, addTx, updateTxStatus, addToast]);
 
   const fetchProposals = useCallback(async () => {
     if (!contractAddress || contractAddress === "") return;
@@ -361,8 +378,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast("Proposal submitted successfully!", 'success');
       } catch (e: any) {
           setError("Failed to send submit_proposal transaction: " + stripErrorPrefix(e.message));
+          addToast("Submission failed: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
@@ -393,7 +412,6 @@ export const useGenLayer = () => {
               try {
                   await (client as any).connect(network);
               } catch (connErr: any) {
-                  // Silent connect failure handling
               }
           }
 
@@ -416,8 +434,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast("Proposal evaluated successfully!", 'success');
       } catch (e: any) {
           setError("Consensus execution failed: " + stripErrorPrefix(e.message));
+          addToast("Evaluation failed: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -444,8 +464,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast("Loan repaid successfully!", 'success');
       } catch (e: any) {
           setError("Failed to repay loan: " + stripErrorPrefix(e.message));
+          addToast("Repayment failed: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
@@ -467,8 +489,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast("Appeal submitted successfully!", 'success');
       } catch (e: any) {
           setError("Appeal failed: " + stripErrorPrefix(e.message));
+          addToast("Appeal failed: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -545,8 +569,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast(`Successfully deposited ${Number(amount)/10**18} GEN`, 'success');
       } catch (e: any) {
           setError("Deposit failed: " + stripErrorPrefix(e.message));
+          addToast("Deposit failed: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -570,8 +596,10 @@ export const useGenLayer = () => {
           const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
+          addToast("Identity verified successfully!", 'success');
       } catch (e: any) {
           setError("Verification failed: " + stripErrorPrefix(e.message));
+          addToast("Verification failed: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -595,8 +623,10 @@ export const useGenLayer = () => {
           const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
+          addToast("Proposal marked as default.", 'success');
       } catch (e: any) {
           setError("Failed to mark default: " + stripErrorPrefix(e.message));
+          addToast("Failed to mark default: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -621,8 +651,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast("Encrypted evidence submitted successfully!", 'success');
       } catch (e: any) {
           setError("Failed to submit encrypted evidence: " + stripErrorPrefix(e.message));
+          addToast("Failed to submit evidence: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
@@ -644,8 +676,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast("Agreement revealed successfully!", 'success');
       } catch (e: any) {
           setError("Failed to reveal agreement: " + stripErrorPrefix(e.message));
+          addToast("Failed to reveal agreement: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -669,8 +703,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast("Bet placed successfully!", 'success');
       } catch (e: any) {
           setError("Failed to place bet: " + stripErrorPrefix(e.message));
+          addToast("Failed to place bet: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
@@ -692,8 +728,10 @@ export const useGenLayer = () => {
           if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          addToast("Market resolved successfully!", 'success');
       } catch (e: any) {
           setError("Failed to resolve market: " + stripErrorPrefix(e.message));
+          addToast("Failed to resolve market: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
       }
@@ -732,6 +770,9 @@ export const useGenLayer = () => {
     networkName,
     setError,
     setContractAddress,
-    isDeploying
+    isDeploying,
+    toasts,
+    addToast,
+    removeToast
   };
 };
