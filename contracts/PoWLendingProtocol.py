@@ -164,7 +164,6 @@ class PoWSubmission:
 # =============================================================================
 # PART 4: THE GENVM CONTRACT
 # =============================================================================
-@gl.contract
 class PoWLendingProtocol(gl.Contract):
     # PILLAR 22: Native Types declared as class properties, NOT instantiated in __init__
     proposals: TreeMap[str, PoWSubmission]
