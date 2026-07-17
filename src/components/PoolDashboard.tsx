@@ -17,24 +17,28 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
 
   const handleCreatePool = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isTargeted) {
-        if (!newPoolName || !targetReturn || !criteria) return;
-        await genLayer.createTargetedPool(
-            newPoolName,
-            parseInt(targetReturn, 10),
-            criteria
-        );
-    } else {
-        if (!newPoolName || !targetReturn || !minCredit || !maxLoan) return;
-        await genLayer.createPool(
-          newPoolName,
-          parseInt(targetReturn, 10),
-          parseInt(minCredit, 10),
-          parseInt(maxLoan, 10),
-          riskTier
-        );
+    try {
+        if (isTargeted) {
+            if (!newPoolName || !targetReturn || !criteria) return;
+            await genLayer.createTargetedPool(
+                newPoolName,
+                parseInt(targetReturn, 10),
+                criteria
+            );
+        } else {
+            if (!newPoolName || !targetReturn || !minCredit || !maxLoan) return;
+            await genLayer.createPool(
+              newPoolName,
+              parseInt(targetReturn, 10),
+              parseInt(minCredit, 10),
+              parseInt(maxLoan, 10),
+              riskTier
+            );
+        }
+        setNewPoolName(''); setTargetReturn(''); setMinCredit(''); setMaxLoan(''); setRiskTier('MEDIUM'); setCriteria('');
+    } catch (err) {
+        console.error("Failed to create pool", err);
     }
-    setNewPoolName(''); setTargetReturn(''); setMinCredit(''); setMaxLoan(''); setRiskTier('MEDIUM'); setCriteria('');
   };
 
   const revealUp = {

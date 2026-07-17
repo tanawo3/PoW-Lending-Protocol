@@ -527,7 +527,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'create_pool',
-              args: [name, target_return_bps, min_credit_score, max_loan_amount_wei, risk_tier]
+              args: [name, BigInt(target_return_bps), BigInt(min_credit_score), BigInt(max_loan_amount_wei), risk_tier]
           });
           addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
@@ -535,6 +535,7 @@ export const useGenLayer = () => {
           await fetchProposals();
       } catch (e: any) {
           setError("Failed to create pool: " + stripErrorPrefix(e.message));
+          throw e;
       } finally {
           setIsEvaluating(false);
       }
@@ -551,7 +552,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'create_targeted_pool',
-              args: [name, target_return_bps, criteria]
+              args: [name, BigInt(target_return_bps), criteria]
           });
           addTx({ hash, type: 'create_targeted_pool', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
@@ -559,6 +560,7 @@ export const useGenLayer = () => {
           await fetchProposals();
       } catch (e: any) {
           setError("Failed to create targeted pool: " + stripErrorPrefix(e.message));
+          throw e;
       } finally {
           setIsEvaluating(false);
       }
