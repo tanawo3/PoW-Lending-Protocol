@@ -155,7 +155,10 @@ class PoWLendingProtocol(gl.Contract):
         self.treasury_balance = u256(0)
 
     def _now(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
+        try:
+            return str(gl.block.timestamp)
+        except Exception:
+            return "0"
 
     # -------------------------------------------------------------------------
     # PRIVATE UTILITY & STORAGE HELPERS
@@ -1404,12 +1407,13 @@ def _fetch_github(username: str) -> str:
             repo = api_match.group(2)
             url = f"https://api.github.com/repos/{owner}/{repo}"
             
-        response = gl.nondet.web.get(url)
-        if response.status >= 500:
+        try:
+            response = gl.nondet.web.get(url)
+            if response.status >= 400:
+                return "{}"
+            body = response.body.decode("utf-8", errors="ignore")
+        except Exception:
             return "{}"
-        if response.status >= 400:
-            return "{}"
-        body = response.body.decode("utf-8", errors="ignore")
         
         lower = body.lower()
         CHALLENGE_MARKERS = ["cloudflare", "ddos protection", "are you human", "captcha"]
