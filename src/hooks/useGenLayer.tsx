@@ -242,11 +242,33 @@ export const useGenLayer = () => {
       console.error("Tx failed receipt:", receipt);
       
       let errMsg = "Transaction rolled back during execution";
-      if (leaderReceipt && leaderReceipt.error) errMsg = leaderReceipt.error;
-      else if (leaderReceipt && leaderReceipt.error_message) errMsg = leaderReceipt.error_message;
-      else if (receipt?.data?.error) errMsg = receipt.data.error;
-      else if (receipt?.error) errMsg = receipt.error;
-      else if (receipt?.error_message) errMsg = receipt.error_message;
+      
+      const findError = (obj: any): string | null => {
+          if (!obj) return null;
+          if (typeof obj === 'string' && (obj.includes('[EXPECTED]') || obj.includes('Rollback') || obj.includes('Insufficient'))) return obj;
+          if (Array.isArray(obj)) {
+              for (const item of obj) {
+                  const res = findError(item);
+                  if (res) return res;
+              }
+          } else if (typeof obj === 'object') {
+              for (const key in obj) {
+                  if (key === 'error' || key === 'error_message' || key === 'errorMessage' || key === 'message') {
+                      if (typeof obj[key] === 'string' && obj[key].trim() !== '') return obj[key];
+                  }
+                  const res = findError(obj[key]);
+                  if (res) return res;
+              }
+          }
+          return null;
+      };
+
+      const deepError = findError(receipt);
+      if (deepError) {
+          errMsg = deepError;
+      } else if (receipt?.data?.error) {
+          errMsg = typeof receipt.data.error === 'string' ? receipt.data.error : JSON.stringify(receipt.data.error);
+      }
       
       updateTxStatus(hash, 'failed', errMsg);
       throw new Error(errMsg);
