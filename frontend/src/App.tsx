@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
-import { Wallet, Hexagon, XCircle, RefreshCw } from 'lucide-react';
+import { Wallet, Hexagon, XCircle, RefreshCw, Settings } from 'lucide-react';
 import { useGenLayer } from './hooks/useGenLayer';
 import { useSoundEffect } from './hooks/useSoundEffect';
 import { InitializationView } from './components/InitializationView';
@@ -12,6 +12,7 @@ import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
 import { FooterCTA } from './components/FooterCTA';
 import WebGLBackground from './components/WebGLBackground';
+import { AIConfigModal } from './components/AIConfigModal';
 
 import { BGMController } from './components/BGMController';
 import { AboutModal } from './components/AboutModal';
@@ -22,6 +23,7 @@ export default function App() {
   const genLayer = useGenLayer();
   const { playHover, playClick } = useSoundEffect();
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isAIConfigOpen, setIsAIConfigOpen] = useState(false);
   
   const {
     address,
@@ -97,6 +99,7 @@ export default function App() {
       
 
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
+      <AIConfigModal isOpen={isAIConfigOpen} onClose={() => setIsAIConfigOpen(false)} />
 
       {/* Stark Navbar */}
       <motion.header 
@@ -115,6 +118,14 @@ export default function App() {
         </div>
         
         <div className="flex items-center gap-4">
+          <button 
+            onClick={() => { playClick(); setIsAIConfigOpen(true); }}
+            onMouseEnter={playHover}
+            className="w-10 h-10 flex items-center justify-center border border-[var(--border-light)] hover:bg-[var(--text-main)] hover:text-[var(--bg-primary)] transition-colors text-[var(--text-main)]"
+            title="AI Configuration & Quotas"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
           <BGMController />
           <button
             onMouseEnter={playHover}

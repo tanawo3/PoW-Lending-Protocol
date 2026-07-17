@@ -192,6 +192,25 @@ export const useGenLayer = () => {
     setError(null);
   }, [network, setContractAddress]);
 
+  const checkAIQuota = (): boolean => {
+    const byok = localStorage.getItem('GENLAYER_AI_BYOK');
+    if (byok && byok.trim().length > 0) {
+      return true; // Bypassed with BYOK
+    }
+    
+    let currentQuota = parseInt(localStorage.getItem('GENLAYER_DAILY_QUOTA') || '5');
+    if (currentQuota <= 0) {
+      toast.error('AI Quota Exceeded. Please provide a BYOK in settings to continue.', {
+        style: { border: '1px solid #ef4444', color: '#ef4444' }
+      });
+      return false;
+    }
+    
+    currentQuota -= 1;
+    localStorage.setItem('GENLAYER_DAILY_QUOTA', currentQuota.toString());
+    return true;
+  };
+
   const connect = useCallback(async () => {
     setError(null);
     const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
@@ -547,6 +566,7 @@ export const useGenLayer = () => {
 
   const evaluateProposal = async (proposal_id: string) => {
       if (!contractAddress) return;
+      if (!checkAIQuota()) return;
       setIsEvaluating(true);
       setError(null);
 
@@ -638,6 +658,7 @@ export const useGenLayer = () => {
 
   const aiVouch = async (proposal_id: string, rationale: string) => {
       if (!contractAddress) return;
+      if (!checkAIQuota()) return;
       setIsEvaluating(true);
       setError(null);
       try {
@@ -736,6 +757,7 @@ export const useGenLayer = () => {
 
   const rebalanceMacroRisk = async () => {
       if (!contractAddress) return;
+      if (!checkAIQuota()) return;
       setError(null);
       setIsEvaluating(true);
       try {
