@@ -1,4 +1,4 @@
-﻿import React, { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Wallet, Hexagon, XCircle, RefreshCw } from 'lucide-react';
 import { useGenLayer } from './hooks/useGenLayer';
 import { useSoundEffect } from './hooks/useSoundEffect';
@@ -6,6 +6,8 @@ import { InitializationView } from './components/InitializationView';
 import { LoanDashboard } from './components/LoanDashboard';
 import { PoolDashboard } from './components/PoolDashboard';
 import { MarketDashboard } from './components/MarketDashboard';
+import { KYCDashboard } from './components/KYCDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
 import { SplitText } from './components/SplitText';
 import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
@@ -240,6 +242,10 @@ export default function App() {
 
                 {/* Dashboard Grid */}
                 <div className="max-w-[1400px] mx-auto px-6 py-24">
+                  <AdminDashboard genLayer={genLayer} />
+
+                  <KYCDashboard genLayer={genLayer} />
+
                   <LoanDashboard genLayer={genLayer} />
                   
                   <PoolDashboard genLayer={genLayer} />
