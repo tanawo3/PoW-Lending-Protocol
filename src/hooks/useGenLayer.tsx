@@ -788,7 +788,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_encrypted_evidence',
-              args: [proposal_id, evidence_id, zk_proof_hash]
+              args: [proposal_id, zk_proof_hash]
           });
           addTx({ hash, type: 'submit_encrypted_evidence', proposal_id, status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
@@ -810,7 +810,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'reveal_agreement',
-              args: [proposal_id, evidence_id]
+              args: [proposal_id, evidence_id, ""]
           });
           addTx({ hash, type: 'reveal_agreement', proposal_id, status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
