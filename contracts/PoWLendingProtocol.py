@@ -136,6 +136,7 @@ class PoWLendingProtocol(gl.Contract):
         self.state.global_risk_index_bps = u256(0)
         self.state.global_risk_index_bps = u256(0)
         self.pool_counter = u256(0)
+        self.treasury_balance = u256(0)
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat()
@@ -187,9 +188,10 @@ class PoWLendingProtocol(gl.Contract):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
         if amount <= 0:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid amount")
-        if int(self.treasury_balance) < amount:
+        current_balance = int(getattr(self, "treasury_balance", 0))
+        if current_balance < amount:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient treasury balance")
-        self.treasury_balance = u256(int(self.treasury_balance) - amount)
+        self.treasury_balance = u256(current_balance - amount)
         self._send_gen(self.owner, amount)
 
     @gl.public.write
