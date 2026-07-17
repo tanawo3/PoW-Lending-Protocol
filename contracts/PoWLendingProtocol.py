@@ -429,26 +429,24 @@ Scoring guidance:
             # Oracle 1: Alternative.me Fear & Greed Index
             try:
                 response = gl.nondet.web.get("https://api.alternative.me/fng/")
-                if response.status < 400:
-                    oracle_results["alternative_me_fng"] = response.body.decode("utf-8", errors="ignore")[:400]
-                else:
-                    oracle_results["alternative_me_fng"] = "UNAVAILABLE: HTTP " + str(response.status)
             except Exception as e:
-                oracle_results["alternative_me_fng"] = f"UNAVAILABLE: {str(e)}"
+                raise gl.vm.UserError(f"{ERROR_TRANSIENT} alternative.me network error: {str(e)}")
+            if response.status >= 500:
+                raise gl.vm.UserError(f"{ERROR_TRANSIENT} alternative.me API 5xx")
+            if response.status >= 400:
+                raise gl.vm.UserError(f"{ERROR_EXTERNAL} alternative.me API {response.status}")
+            oracle_results["alternative_me_fng"] = response.body.decode("utf-8", errors="ignore")[:400]
                 
             # Oracle 2: CoinGecko BTC price
             try:
                 response = gl.nondet.web.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd")
-                if response.status < 400:
-                    oracle_results["coingecko_btc"] = response.body.decode("utf-8", errors="ignore")[:400]
-                else:
-                    oracle_results["coingecko_btc"] = "UNAVAILABLE: HTTP " + str(response.status)
             except Exception as e:
-                oracle_results["coingecko_btc"] = f"UNAVAILABLE: {str(e)}"
-
-            all_failed = all("UNAVAILABLE" in v for v in oracle_results.values())
-            if all_failed:
-                return json.dumps({"global_risk_bps": 5000, "reasoning": "All oracles failed. Defaulting to 50% risk."})
+                raise gl.vm.UserError(f"{ERROR_TRANSIENT} coingecko network error: {str(e)}")
+            if response.status >= 500:
+                raise gl.vm.UserError(f"{ERROR_TRANSIENT} coingecko API 5xx")
+            if response.status >= 400:
+                raise gl.vm.UserError(f"{ERROR_EXTERNAL} coingecko API {response.status}")
+            oracle_results["coingecko_btc"] = response.body.decode("utf-8", errors="ignore")[:400]
 
             prompt = f"""
 <UNTRUSTED_DATA>
@@ -1478,11 +1476,14 @@ def _fetch_github(username: str) -> str:
             repo = api_match.group(2)
             url = f"https://api.github.com/repos/{owner}/{repo}"
             
-        response = gl.nondet.web.get(url)
+        try:
+            response = gl.nondet.web.get(url)
+        except Exception as e:
+            raise gl.vm.UserError(f"{ERROR_TRANSIENT} github network error: {str(e)}")
         if response.status >= 500:
-            return "{}"
+            raise gl.vm.UserError(f"{ERROR_TRANSIENT} github API 5xx")
         if response.status >= 400:
-            return "{}"
+            raise gl.vm.UserError(f"{ERROR_EXTERNAL} github API {response.status}")
         body = response.body.decode("utf-8", errors="ignore")
         
         lower = body.lower()
@@ -1501,14 +1502,22 @@ def _fetch_collateral_price() -> str:
     """Fetches real-time asset pricing for deterministic LTV evaluations."""
     try:
         url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
-        response = gl.nondet.web.get(url)
-        if response.status >= 400: return "Unknown"
+        try:
+            response = gl.nondet.web.get(url)
+        except Exception as e:
+            raise gl.vm.UserError(f"{ERROR_TRANSIENT} coingecko network error: {str(e)}")
+        if response.status >= 500:
+            raise gl.vm.UserError(f"{ERROR_TRANSIENT} coingecko API 5xx")
+        if response.status >= 400:
+            raise gl.vm.UserError(f"{ERROR_EXTERNAL} coingecko API {response.status}")
         data = json.loads(response.body.decode("utf-8", errors="ignore"))
         val = data.get("ethereum", {}).get("usd")
         if val is not None:
             return str(val)
         return "Unknown"
-    except Exception:
+    except Exception as e:
+        if isinstance(e, gl.vm.UserError):
+            raise e
         return "Unknown"
 
 def _handle_leader_error(leaders_res, leader_fn) -> bool:
