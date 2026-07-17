@@ -246,7 +246,8 @@ Return ONLY valid JSON:
 
         result = gl.vm.run_nondet(leader_fn, validator_fn)
         try:
-            decision = json.loads(result.calldata)
+            if isinstance(result, str): decision = json.loads(result)
+            else: decision = result if isinstance(result, dict) else {}
             profile["kyc_status"] = decision.get("kyc_status", "VERIFIED")
             profile["identity_score"] = int(decision.get("identity_score", 8500))
             profile["kyc_reasoning"] = str(decision.get("reasoning", "Identity successfully verified by AI consensus."))
@@ -454,13 +455,8 @@ Output a JSON with exactly two fields:
                 return False
 
         result = gl.vm.run_nondet(leader_fn, validator_fn)
-        if not isinstance(result, gl.vm.Return):
-            # Debug injection
-            self.state.macro_risk_reasoning = f"Consensus failed! Result: {str(getattr(result, 'message', str(result)))}"
-            return True
-            
         try:
-            data = json.loads(result.calldata)
+            data = result
             if isinstance(data, str): data = json.loads(data)
             self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
             self.state.macro_risk_reasoning = str(data.get("reasoning", "No reasoning provided."))
@@ -607,7 +603,8 @@ Output a JSON with exactly two fields:
                 
         fraud_decision_raw = gl.vm.run_nondet(fraud_leader_fn, fraud_validator_fn)
         try:
-            fraud_decision = json.loads(fraud_decision_raw.calldata)
+            if isinstance(fraud_decision_raw, str): fraud_decision = json.loads(fraud_decision_raw)
+            else: fraud_decision = fraud_decision_raw if isinstance(fraud_decision_raw, dict) else {}
             prop.fraud_score = u256(fraud_decision["fraud_score"])
         except Exception:
             prop.fraud_score = u256(5000)
@@ -674,7 +671,8 @@ Output a JSON with exactly two fields:
         decision_raw = gl.vm.run_nondet(leader_fn, validator_fn)
         
         try:
-            decision = json.loads(decision_raw.calldata)
+            if isinstance(decision_raw, str): decision = json.loads(decision_raw)
+            else: decision = decision_raw if isinstance(decision_raw, dict) else {}
             prop.status = decision["verdict"]
             prop.ai_reasoning = decision["summary"]
             prop.risk_score = u256(decision["risk_score"])
@@ -801,7 +799,10 @@ Output a JSON with exactly two fields:
                 return False
                 
         decision_raw = gl.vm.run_nondet(leader_fn, validator_fn)
-        try: decision = json.loads(decision_raw.calldata)
+        try:
+            if isinstance(decision_raw, str): decision = json.loads(decision_raw)
+            else: decision = decision_raw if isinstance(decision_raw, dict) else {}
+
         except Exception: decision = {"verdict": "UPHOLD", "summary": "Error formatting consensus."}
         
         appeal_hist = self._loads(prop.appeal_history_json, [])
@@ -878,7 +879,9 @@ Output a JSON with exactly two fields:
                 return False
                 
         decision_raw = gl.vm.run_nondet(leader_fn, validator_fn)
-        try: decision = json.loads(decision_raw.calldata)
+        try:
+            if isinstance(decision_raw, str): decision = json.loads(decision_raw)
+            else: decision = decision_raw if isinstance(decision_raw, dict) else {}
         except Exception: decision = {"vouch_quality_bps": 0, "summary": "Error parsing."}
         
         quality = decision["vouch_quality_bps"]
