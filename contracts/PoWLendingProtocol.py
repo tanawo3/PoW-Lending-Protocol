@@ -206,7 +206,7 @@ class PoWLendingProtocol(gl.Contract):
         }
         self._save_borrower(borrower, profile)
 
-        def leader_fn() -> dict:
+        def leader_fn() -> str:
             prompt = f"""You are a KYC AI Oracle.
 DOCUMENT HASH: {document_hash}
 SELFIE HASH: {selfie_hash}
@@ -218,23 +218,33 @@ Return ONLY valid JSON:
   "identity_score": 8500
 }}"""
             res = gl.nondet.exec_prompt(prompt, response_format="json")
-            if isinstance(res, dict):
-                return res
-            return {"kyc_status": "VERIFIED", "identity_score": 8500}
+            if isinstance(res, str):
+                try:
+                    parsed = json.loads(res)
+                    return json.dumps(parsed)
+                except Exception:
+                    pass
+            return json.dumps({"kyc_status": "VERIFIED", "identity_score": 8500})
 
         def validator_fn(leader_res: gl.vm.Result) -> bool:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                mine = leader_fn()
-                ld_data = leader_res.calldata
+                mine = json.loads(leader_fn())
+                ld_data = json.loads(leader_res.calldata)
                 return mine.get("kyc_status", "") == ld_data.get("kyc_status", "")
-            except gl.vm.UserError:
+            except Exception:
                 return False
 
-        decision = gl.vm.run_nondet(leader_fn, validator_fn)
-        profile["kyc_status"] = decision.get("kyc_status", "VERIFIED")
-        profile["identity_score"] = int(decision.get("identity_score", 8500))
+        result = gl.vm.run_nondet(leader_fn, validator_fn)
+        try:
+            decision = json.loads(result.calldata)
+            profile["kyc_status"] = decision.get("kyc_status", "VERIFIED")
+            profile["identity_score"] = int(decision.get("identity_score", 8500))
+        except Exception:
+            profile["kyc_status"] = "VERIFIED"
+            profile["identity_score"] = 8500
+            
         self._save_borrower(borrower, profile)
         return True
 
@@ -367,7 +377,7 @@ Return ONLY valid JSON:
         Dynamically adjusts the protocol's global risk index based on macro market conditions.
         Inherited from the gen-treasury architecture for Elite DeFi operations.
         """
-        def leader_fn() -> dict:
+        def leader_fn() -> str:
             oracle_results = {}
             # Oracle 1: Alternative.me Fear & Greed Index
             try:
@@ -391,7 +401,7 @@ Return ONLY valid JSON:
 
             all_failed = all("UNAVAILABLE" in v for v in oracle_results.values())
             if all_failed:
-                return {"global_risk_bps": 5000, "reasoning": "All oracles failed. Defaulting to 50% risk."}
+                return json.dumps({"global_risk_bps": 5000, "reasoning": "All oracles failed. Defaulting to 50% risk."})
 
             prompt = f"""
 <UNTRUSTED_DATA>
@@ -405,15 +415,19 @@ Output a JSON with exactly two fields:
 - "reasoning": A short string explaining why.
 """
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
-            if isinstance(analysis, dict):
-                return {"global_risk_bps": analysis.get("global_risk_bps", 5000), "reasoning": analysis.get("reasoning", "Parsed")}
-            return {"global_risk_bps": 5000, "reasoning": "Parse failure"}
+            if isinstance(analysis, str):
+                try:
+                    parsed = json.loads(analysis)
+                    return json.dumps({"global_risk_bps": parsed.get("global_risk_bps", 5000), "reasoning": parsed.get("reasoning", "Parsed")})
+                except Exception:
+                    pass
+            return json.dumps({"global_risk_bps": 5000, "reasoning": "Parse failure"})
 
         def validator_fn(leader_res: gl.vm.Result) -> bool:
             if leader_res.error:
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                data = leader_res.calldata
+                data = json.loads(leader_res.calldata)
                 risk = int(data.get("global_risk_bps", 5000))
                 return 0 <= risk <= 10000
             except Exception:
@@ -421,7 +435,7 @@ Output a JSON with exactly two fields:
 
         result = gl.vm.run_nondet(leader_fn, validator_fn)
         try:
-            data = result.calldata
+            data = json.loads(result.calldata)
             self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
         except Exception:
             pass
@@ -548,23 +562,27 @@ Output a JSON with exactly two fields:
         t_pool_id = prop.target_pool_id
         
         # Phase 1: Pre-Vote Fraud Radar AI
-        def fraud_leader_fn() -> dict:
+        def fraud_leader_fn() -> str:
             prompt = _interpret_fraud_prompt(borrower, amount, pow_sub, w_age, w_tx, w_bal)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
-            return {"fraud_score": _parse_ratio_bps(analysis), "reasoning": _clean_summary(analysis)}
+            return json.dumps({"fraud_score": _parse_ratio_bps(analysis), "reasoning": _clean_summary(analysis)})
             
         def fraud_validator_fn(leader_res: gl.vm.Result) -> bool:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, fraud_leader_fn)
             try:
-                data = leader_res.calldata
+                data = json.loads(leader_res.calldata)
                 if not isinstance(data, dict): return False
                 return isinstance(data.get("fraud_score"), int)
-            except gl.vm.UserError:
+            except Exception:
                 return False
                 
-        fraud_decision = gl.vm.run_nondet(fraud_leader_fn, fraud_validator_fn)
-        prop.fraud_score = u256(fraud_decision["fraud_score"])
+        fraud_decision_raw = gl.vm.run_nondet(fraud_leader_fn, fraud_validator_fn)
+        try:
+            fraud_decision = json.loads(fraud_decision_raw.calldata)
+            prop.fraud_score = u256(fraud_decision["fraud_score"])
+        except Exception:
+            prop.fraud_score = u256(5000)
         
         # If obvious fraud, short-circuit
         if int(prop.fraud_score) > 8000:
@@ -583,7 +601,7 @@ Output a JSON with exactly two fields:
             if pool and pool.get("criteria"):
                 pool_criteria = f"CRITICAL REQUIREMENT: This loan is targeted at a specific LP Pool. You MUST evaluate if the borrower strictly meets this criteria: '{pool.get('criteria')}'. If they do not, you MUST reject the loan regardless of their stats."
         
-        def leader_fn() -> dict:
+        def leader_fn() -> str:
             """Leader execution environment."""
             github_data = _fetch_github(pow_sub)
             live_price = _fetch_collateral_price()
@@ -591,42 +609,53 @@ Output a JSON with exactly two fields:
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
             
             credit_score = _parse_score(analysis, "credit_score")
-            risk_level = str(analysis.get("risk_level", "HIGH")).upper()
+            
+            if isinstance(analysis, str):
+                try: parsed_analysis = json.loads(analysis)
+                except Exception: parsed_analysis = {}
+            else:
+                parsed_analysis = analysis if isinstance(analysis, dict) else {}
+                
+            risk_level = str(parsed_analysis.get("risk_level", "HIGH")).upper()
             if risk_level not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
                 risk_level = "HIGH"
                 
             interest_rate_bps = _calculate_interest_rate_bps(credit_score, risk_level)
             
-            return {
+            return json.dumps({
                 "verdict": _parse_verdict(analysis),
                 "risk_score": interest_rate_bps,
                 "wallet_trust_score": det_wallet_trust,
                 "income_score": det_income_score,
                 "reputation_score": _parse_score(analysis, "reputation_score"),
                 "summary": _clean_summary(analysis)
-            }
+            })
             
         def validator_fn(leader_res: gl.vm.Result) -> bool:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
                 
             try:
-                mine = leader_fn()
-                ld_data = leader_res.calldata
+                mine = json.loads(leader_fn())
+                ld_data = json.loads(leader_res.calldata)
                 return mine["verdict"] == ld_data["verdict"] and isinstance(ld_data.get("risk_score"), int)
-            except gl.vm.UserError:
+            except Exception:
                 return False
 
         # Execute Consensus Engine deterministically
-        decision = gl.vm.run_nondet(leader_fn, validator_fn)
+        decision_raw = gl.vm.run_nondet(leader_fn, validator_fn)
         
-        # State transitions based on consensus outcome
-        prop.status = decision["verdict"]
-        prop.ai_reasoning = decision["summary"]
-        prop.risk_score = u256(decision["risk_score"])
-        prop.wallet_trust_score = u256(decision["wallet_trust_score"])
-        prop.income_score = u256(decision["income_score"])
-        prop.reputation_score = u256(decision["reputation_score"])
+        try:
+            decision = json.loads(decision_raw.calldata)
+            prop.status = decision["verdict"]
+            prop.ai_reasoning = decision["summary"]
+            prop.risk_score = u256(decision["risk_score"])
+            prop.wallet_trust_score = u256(decision["wallet_trust_score"])
+            prop.income_score = u256(decision["income_score"])
+            prop.reputation_score = u256(decision["reputation_score"])
+        except Exception:
+            prop.status = "REJECTED"
+            prop.ai_reasoning = "Consensus formatting error."
         prop.last_updated = self._now()
         if prop.status == "APPROVED":
             loan_amount = int(prop.requested_amount)
@@ -725,25 +754,27 @@ Output a JSON with exactly two fields:
         pow_sub = prop.pow_submission
         ai_reasoning = prop.ai_reasoning
         
-        def leader_fn() -> dict:
+        def leader_fn() -> str:
             prompt = _interpret_arbitrator_prompt(pow_sub, ai_reasoning, dispute_evidence)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
-            return {
+            return json.dumps({
                 "verdict": _parse_arbitrator_verdict(analysis),
                 "summary": _clean_summary(analysis)
-            }
+            })
             
         def validator_fn(leader_res: gl.vm.Result) -> bool:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                mine = leader_fn()
-                ld_data = leader_res.calldata
+                mine = json.loads(leader_fn())
+                ld_data = json.loads(leader_res.calldata)
                 return mine["verdict"] == ld_data["verdict"]
-            except gl.vm.UserError:
+            except Exception:
                 return False
                 
-        decision = gl.vm.run_nondet(leader_fn, validator_fn)
+        decision_raw = gl.vm.run_nondet(leader_fn, validator_fn)
+        try: decision = json.loads(decision_raw.calldata)
+        except Exception: decision = {"verdict": "UPHOLD", "summary": "Error formatting consensus."}
         
         appeal_hist = self._loads(prop.appeal_history_json, [])
         appeal_hist.append({
@@ -800,25 +831,27 @@ Output a JSON with exactly two fields:
         voucher = str(gl.message.sender_address)
         pow_sub = prop.pow_submission
         
-        def leader_fn() -> dict:
+        def leader_fn() -> str:
             prompt = _interpret_vouch_prompt(voucher, pow_sub, rationale)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
-            return {
+            return json.dumps({
                 "vouch_quality_bps": _parse_ratio_bps(analysis),
                 "summary": _clean_summary(analysis)
-            }
+            })
             
         def validator_fn(leader_res: gl.vm.Result) -> bool:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                mine = leader_fn()
-                ld_data = leader_res.calldata
+                mine = json.loads(leader_fn())
+                ld_data = json.loads(leader_res.calldata)
                 return isinstance(ld_data.get("vouch_quality_bps"), int)
-            except gl.vm.UserError:
+            except Exception:
                 return False
                 
-        decision = gl.vm.run_nondet(leader_fn, validator_fn)
+        decision_raw = gl.vm.run_nondet(leader_fn, validator_fn)
+        try: decision = json.loads(decision_raw.calldata)
+        except Exception: decision = {"vouch_quality_bps": 0, "summary": "Error parsing."}
         
         quality = decision["vouch_quality_bps"]
         
@@ -1477,6 +1510,9 @@ Return ONLY the following JSON:
 
 def _parse_ratio_bps(analysis) -> int:
     """Extracts, formats, and validates the risk ratio from JSON."""
+    if isinstance(analysis, str):
+        try: analysis = json.loads(analysis)
+        except Exception: pass
     if not isinstance(analysis, dict):
         raise gl.vm.UserError(f"{ERROR_LLM} Response structure violation: Expected JSON Dictionary")
     
@@ -1490,6 +1526,9 @@ def _parse_ratio_bps(analysis) -> int:
 
 def _parse_score(analysis, key: str) -> int:
     """Helper for granular subscores."""
+    if isinstance(analysis, str):
+        try: analysis = json.loads(analysis)
+        except Exception: pass
     if not isinstance(analysis, dict): return 0
     raw = analysis.get(key, 0)
     try:
@@ -1500,6 +1539,9 @@ def _parse_score(analysis, key: str) -> int:
 
 def _parse_verdict(analysis) -> str:
     """Extracts and normalizes the verdict from JSON."""
+    if isinstance(analysis, str):
+        try: analysis = json.loads(analysis)
+        except Exception: pass
     if not isinstance(analysis, dict):
         return "REJECTED"
     v = str(analysis.get("verdict", "REJECTED")).upper()
@@ -1507,6 +1549,9 @@ def _parse_verdict(analysis) -> str:
 
 def _clean_summary(analysis) -> str:
     """Extracts, sanitizes, and bounds the summary text from JSON."""
+    if isinstance(analysis, str):
+        try: analysis = json.loads(analysis)
+        except Exception: pass
     if isinstance(analysis, dict):
         summary = analysis.get("summary", analysis.get("underwriting_rationale", ""))
         return _deep_sanitize(str(summary))[:512]
