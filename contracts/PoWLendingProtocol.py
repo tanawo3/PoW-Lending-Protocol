@@ -256,14 +256,9 @@ Scoring guidance:
 """
             res = gl.nondet.exec_prompt(prompt, response_format="json")
             
-            parsed = {}
-            if isinstance(res, str):
-                res = res.strip().replace("```json", "").replace("```", "").strip()
-                try: parsed = json.loads(res)
-                except Exception: pass
-            elif isinstance(res, dict):
-                parsed = res
-                
+            parsed = _parse_json_response(res)
+            
+            # Use deterministic defaults if JSON misses fields    
             if parsed:
                 return json.dumps(parsed)
                 
@@ -464,14 +459,8 @@ Output a JSON with exactly two fields:
 """
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
             
-            parsed = {}
-            if isinstance(analysis, str):
-                analysis = analysis.strip().replace("```json", "").replace("```", "").strip()
-                try: parsed = json.loads(analysis)
-                except Exception: pass
-            elif isinstance(analysis, dict):
-                parsed = analysis
-                
+            parsed = _parse_json_response(analysis)
+            
             if parsed:
                 return json.dumps({
                     "global_risk_bps": int(parsed.get("global_risk_bps", 5000)),
@@ -672,27 +661,23 @@ Output a JSON with exactly two fields:
             prompt = _interpret_leader_prompt(borrower, amount, collateral, live_price, pow_sub, github_data, w_age, w_tx, w_bal, det_wallet_trust, det_income_score, pool_criteria)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
             
-            credit_score = _parse_score(analysis, "credit_score")
+            parsed = _parse_json_response(analysis)
             
-            if isinstance(analysis, str):
-                try: parsed_analysis = json.loads(analysis)
-                except Exception: parsed_analysis = {}
-            else:
-                parsed_analysis = analysis if isinstance(analysis, dict) else {}
-                
-            risk_level = str(parsed_analysis.get("risk_level", "HIGH")).upper()
+            credit_score = _parse_score(parsed, "credit_score")
+            
+            risk_level = str(parsed.get("risk_level", "HIGH")).upper()
             if risk_level not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
                 risk_level = "HIGH"
                 
             interest_rate_bps = _calculate_interest_rate_bps(credit_score, risk_level)
             
             return json.dumps({
-                "verdict": _parse_verdict(analysis),
+                "verdict": _parse_verdict(parsed),
                 "risk_score": interest_rate_bps,
                 "wallet_trust_score": det_wallet_trust,
                 "income_score": det_income_score,
-                "reputation_score": _parse_score(analysis, "reputation_score"),
-                "summary": _clean_summary(analysis)
+                "reputation_score": _parse_score(parsed, "reputation_score"),
+                "summary": _clean_summary(parsed)
             })
             
         def validator_fn(leader_res: gl.vm.Result) -> bool:
@@ -820,9 +805,10 @@ Output a JSON with exactly two fields:
         def leader_fn() -> str:
             prompt = _interpret_arbitrator_prompt(pow_sub, ai_reasoning, clean_evidence)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
+            parsed = _parse_json_response(analysis)
             return json.dumps({
-                "verdict": _parse_arbitrator_verdict(analysis),
-                "summary": _clean_summary(analysis)
+                "verdict": _parse_arbitrator_verdict(parsed),
+                "summary": _clean_summary(parsed)
             })
             
         def validator_fn(leader_res: gl.vm.Result) -> bool:
@@ -900,9 +886,10 @@ Output a JSON with exactly two fields:
         def leader_fn() -> str:
             prompt = _interpret_vouch_prompt(voucher, pow_sub, clean_rationale)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
+            parsed = _parse_json_response(analysis)
             return json.dumps({
-                "vouch_quality_bps": _parse_ratio_bps(analysis),
-                "summary": _clean_summary(analysis)
+                "vouch_quality_bps": _parse_ratio_bps(parsed),
+                "summary": _clean_summary(parsed)
             })
             
         def validator_fn(leader_res: gl.vm.Result) -> bool:
@@ -1392,11 +1379,28 @@ def _deep_sanitize(text: str) -> str:
     text = text.replace("<", "&lt;").replace(">", "&gt;") # Prevent XML tag escaping
     return text.strip()
 
-def _clamp_bps(value: int) -> int:
-    """Clamps an integer to valid basis point boundaries."""
-    if value < 0: return 0
-    if value > BPS_DENOMINATOR: return BPS_DENOMINATOR
-    return value
+def _clamp_bps(val: int) -> int:
+    if val < 0: return 0
+    if val > BPS_DENOMINATOR: return BPS_DENOMINATOR
+    return val
+
+def _parse_json_response(value) -> dict:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str):
+        raise gl.vm.UserError(f"{ERROR_LLM} LLM returned unsupported response type: {type(value)}")
+
+    first = value.find("{")
+    last = value.rfind("}")
+    if first < 0 or last < first:
+        raise gl.vm.UserError(f"{ERROR_LLM} LLM returned non-JSON text")
+
+    text = value[first : last + 1]
+    text = text.replace(",}", "}").replace(",]", "]")
+    try:
+        return json.loads(text)
+    except Exception:
+        raise gl.vm.UserError(f"{ERROR_LLM} LLM returned invalid JSON")
 
 def _calculate_approval_ratio(approved: int, total: int) -> int:
     """Deterministic mathematical helper for calculating historical divergence."""
