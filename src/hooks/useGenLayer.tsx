@@ -728,6 +728,7 @@ export const useGenLayer = () => {
           addTx({ hash, type: 'rebalance_macro_risk', status: 'pending', timestamp: Date.now() });
           await waitTx(hash, client);
           updateTxStatus(hash, 'success');
+          await fetchProposals();
       } catch (e: any) {
           setError("Failed to rebalance macro risk: " + stripErrorPrefix(e.message));
       } finally {
