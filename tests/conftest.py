@@ -1,33 +1,33 @@
+import pytest
 import sys
+import builtins
+
 sys.path.append('contracts')
 
 class MockGL:
     class evm:
-        def contract_interface(cls):
-            return cls
+        def contract_interface(cls): return cls
     class public:
-        def view(func):
-            return func
+        def view(func): return func
         class WriteDecorator:
-            def __call__(self, func):
-                return func
-            def payable(self, func):
-                return func
+            def __call__(self, func): return func
+            def payable(self, func): return func
         write = WriteDecorator()
     class message:
         sender_address = "0x1234567890abcdef1234567890abcdef12345678"
     class nondet:
-        def invoke(self):
-            return "invoked"
+        def invoke(self): return "invoked"
     class contract:
         pass
+    class vm:
+        class UserError(Exception): pass
     Contract = object
 
-import builtins
 builtins.gl = MockGL()
 builtins.allow_storage = lambda x: x
 def u256(val): return val
 builtins.u256 = u256
+
 class DynArray:
     def __init__(self): self.data = []
     def append(self, x): self.data.append(x)
@@ -51,21 +51,28 @@ class TreeMap:
 builtins.TreeMap = TreeMap
 
 class DummyModule: pass
-import sys
 genlayer_mod = DummyModule()
 genlayer_mod.gl = builtins.gl
 genlayer_mod.allow_storage = builtins.allow_storage
 genlayer_mod.u256 = builtins.u256
 genlayer_mod.DynArray = builtins.DynArray
 genlayer_mod.TreeMap = builtins.TreeMap
+genlayer_mod.vm = MockGL.vm
 sys.modules['genlayer'] = genlayer_mod
 
-import PoWLendingProtocol
-import logging
+@pytest.fixture
+def direct_vm():
+    class DummyVM:
+        sender = "0x1234567890abcdef1234567890abcdef12345678"
+    return DummyVM()
 
-try:
-    contract = PoWLendingProtocol.PoWLendingProtocol()
-    print("Instantiation successful!")
-except Exception as e:
-    print(f"Instantiation failed: {e}")
-    logging.exception(e)
+@pytest.fixture
+def direct_deploy():
+    def _deploy(contract_path, *args, **kwargs):
+        import PoWLendingProtocol
+        return PoWLendingProtocol.PoWLendingProtocol()
+    return _deploy
+
+@pytest.fixture
+def direct_owner():
+    return "0x1234567890abcdef1234567890abcdef12345678"
