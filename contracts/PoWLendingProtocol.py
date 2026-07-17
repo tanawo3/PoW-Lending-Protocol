@@ -35,6 +35,9 @@ MAX_SYSTEM_METRICS = 50
 # =============================================================================
 # PART 2: PURE FUNCTIONS (PROMPT BUILDERS & ERROR HANDLERS)
 # =============================================================================
+def _sender() -> str:
+    return str(getattr(gl.message, "sender_address", getattr(gl.message, "sender_account", "")))
+
 def _handle_leader_error(leader_res: gl.vm.Result, fallback_fn) -> bool:
     if isinstance(leader_res, gl.vm.UserError):
         msg = leader_res.message
@@ -165,7 +168,7 @@ class PoWLendingProtocol(gl.Contract):
     borrowers: TreeMap[str, str]
 
     def __init__(self):
-        self.owner = str(gl.message.sender_address)
+        self.owner = _sender()
         self.total_loans = u256(0)
         self.total_approved = u256(0)
         self.total_rejected = u256(0)
@@ -216,7 +219,7 @@ class PoWLendingProtocol(gl.Contract):
     # =============================================================================
     @gl.public.write
     def submit_identity_verification(self, ipfs_hash: str) -> bool:
-        borrower_address = str(gl.message.sender_address)
+        borrower_address = _sender()
         
         def leader_fn() -> dict:
             try:
@@ -251,7 +254,7 @@ class PoWLendingProtocol(gl.Contract):
     # =============================================================================
     @gl.public.write
     def create_pool(self, name: str, risk_tolerance_bps: int, min_deposit: int) -> str:
-        if str(gl.message.sender_address) != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+        if _sender() != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
         pid = f"pool_{int(self.pool_counter)}"
         self.pool_counter = u256(int(self.pool_counter) + 1)
         p = {
@@ -280,14 +283,14 @@ class PoWLendingProtocol(gl.Contract):
     # =============================================================================
     @gl.public.write.payable
     def submit_proposal(self, pow_submission: str, requested_amount: int, pool_id: str) -> str:
-        prof = self._get_borrower(str(gl.message.sender_address))
+        prof = self._get_borrower(_sender())
         if not prof.get("kyc_verified", False): raise gl.vm.UserError(f"{ERROR_EXPECTED} KYC Required")
         
         pid = f"prop_{int(self.total_loans)}"
         self.total_loans = u256(int(self.total_loans) + 1)
         
         self.proposals[pid] = PoWSubmission(
-            proposal_id=pid, borrower=str(gl.message.sender_address), requested_amount=u256(requested_amount),
+            proposal_id=pid, borrower=_sender(), requested_amount=u256(requested_amount),
             pow_submission=pow_submission, status="PENDING", ai_reasoning="", risk_score=u256(0),
             collateral=u256(int(gl.message.value)), debt=u256(0), pool_id=pool_id, last_updated=self._now(),
             encrypted_evidence="", plaintext_evidence=""
@@ -384,7 +387,7 @@ class PoWLendingProtocol(gl.Contract):
     def repay_loan(self, proposal_id: str) -> bool:
         if proposal_id not in self.proposals: raise gl.vm.UserError(f"{ERROR_EXPECTED} Not found")
         prop = self.proposals[proposal_id]
-        if str(gl.message.sender_address) != prop.borrower: raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
+        if _sender() != prop.borrower: raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
         if prop.status != "APPROVED": raise gl.vm.UserError(f"{ERROR_EXPECTED} Not active")
         debt = int(prop.debt)
         if gl.message.value < debt: raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient. Need {debt}")
@@ -416,7 +419,7 @@ class PoWLendingProtocol(gl.Contract):
 
     @gl.public.write
     def mark_default(self, proposal_id: str) -> bool:
-        if str(gl.message.sender_address) != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+        if _sender() != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
         if proposal_id not in self.proposals: raise gl.vm.UserError(f"{ERROR_EXPECTED} Not found")
         prop = self.proposals[proposal_id]
         if prop.status != "APPROVED": raise gl.vm.UserError(f"{ERROR_EXPECTED} Not active")
@@ -436,7 +439,7 @@ class PoWLendingProtocol(gl.Contract):
     def revoke_proposal(self, proposal_id: str) -> bool:
         if proposal_id not in self.proposals: raise gl.vm.UserError(f"{ERROR_EXPECTED} Not found")
         prop = self.proposals[proposal_id]
-        if str(gl.message.sender_address) != prop.borrower: raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
+        if _sender() != prop.borrower: raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
         if prop.status == "REVOKED": return True
         if prop.status == "PENDING" and int(prop.collateral) > 0:
             _NativeRecipient(Address(prop.borrower)).emit_transfer(value=prop.collateral)
@@ -475,7 +478,7 @@ class PoWLendingProtocol(gl.Contract):
     # =============================================================================
     @gl.public.write
     def create_market(self, proposal_id: str, description: str) -> str:
-        if str(gl.message.sender_address) != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+        if _sender() != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
         mid = f"mkt_{int(self.market_counter)}"
         self.market_counter = u256(int(self.market_counter) + 1)
         
@@ -506,7 +509,7 @@ class PoWLendingProtocol(gl.Contract):
 
     @gl.public.write
     def resolve_market(self, market_id: str, outcome_yes: bool) -> bool:
-        if str(gl.message.sender_address) != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+        if _sender() != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
         if market_id not in self.markets: raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid market")
         
         m = self._get_market(market_id)
@@ -520,7 +523,7 @@ class PoWLendingProtocol(gl.Contract):
 
     @gl.public.write
     def update_market_status(self, market_id: str, new_status: str) -> bool:
-        if str(gl.message.sender_address) != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
+        if _sender() != self.owner: raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
         if market_id not in self.markets: raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid market")
         m = self._get_market(market_id)
         m["status"] = new_status
@@ -534,7 +537,7 @@ class PoWLendingProtocol(gl.Contract):
     def submit_encrypted_evidence(self, proposal_id: str, encrypted_payload: str) -> None:
         if proposal_id not in self.proposals: raise gl.vm.UserError(f"{ERROR_EXPECTED} Not found")
         prop = self.proposals[proposal_id]
-        if str(gl.message.sender_address) != prop.borrower: raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
+        if _sender() != prop.borrower: raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
         prop.encrypted_evidence = encrypted_payload
         self.proposals[proposal_id] = prop
 
@@ -542,7 +545,7 @@ class PoWLendingProtocol(gl.Contract):
     def reveal_agreement(self, proposal_id: str, plaintext: str, salt: str) -> bool:
         if proposal_id not in self.proposals: raise gl.vm.UserError(f"{ERROR_EXPECTED} Not found")
         prop = self.proposals[proposal_id]
-        if str(gl.message.sender_address) not in [prop.borrower, self.owner]: raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
+        if _sender() not in [prop.borrower, self.owner]: raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
         prop.plaintext_evidence = plaintext
         self.proposals[proposal_id] = prop
         return True
