@@ -1590,15 +1590,23 @@ def _parse_verdict(analysis) -> str:
     return "APPROVED" if v == "APPROVED" else "REJECTED"
 
 def _clean_summary(analysis) -> str:
-    """Extracts, sanitizes, and bounds the summary text from JSON."""
+    """Extracts, sanitizes, and bounds the summary text from JSON or string."""
     if isinstance(analysis, str):
         analysis = analysis.strip().replace("```json", "").replace("```", "").strip()
         try: analysis = json.loads(analysis)
         except Exception: pass
+        
     if isinstance(analysis, dict):
-        summary = analysis.get("summary", analysis.get("underwriting_rationale", ""))
-        return _deep_sanitize(str(summary))[:512]
-    return "Error: Failed to generate a deterministic summary."
+        summary = analysis.get("summary", analysis.get("underwriting_rationale", analysis.get("reasoning", "")))
+        if not summary:
+            summary = str(analysis)
+    else:
+        summary = str(analysis)
+        
+    if not summary:
+        summary = "No summary provided."
+        
+    return _deep_sanitize(str(summary).replace('"', "'"))[:2000]
 
 def _interpret_arbitrator_prompt(pow_sub: str, prior_reasoning: str, dispute_evidence: str) -> str:
     return f"""You are the Supreme AI Arbitrator for PoW Lending Protocol.
