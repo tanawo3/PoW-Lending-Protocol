@@ -1395,6 +1395,7 @@ def _deep_sanitize(text: str) -> str:
         text = re.sub(re.escape(phrase), "", text, flags=re.IGNORECASE)
         
     text = text.replace("```", "EEE")
+    text = text.replace("<", "&lt;").replace(">", "&gt;") # Prevent XML tag escaping
     return text.strip()
 
 def _clamp_bps(value: int) -> int:
