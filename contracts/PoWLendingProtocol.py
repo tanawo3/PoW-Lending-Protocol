@@ -113,21 +113,6 @@ class IReputation:
 # -----------------------------------------------------------------------------
 @allow_storage
 @dataclass
-class ProtocolState:
-    """
-    High-level encapsulation of the entire protocol's thermodynamic state.
-    Used for mathematical divergence calculations and on-chain analytics.
-    """
-    total_processed: u256
-    total_approved: u256
-    total_rejected: u256
-    total_revoked: u256
-    total_capital_requested: u256
-    total_capital_approved: u256
-    global_risk_index_bps: u256
-    macro_risk_reasoning: str
-    last_macro_rebalance: str
-
 class PoWLendingProtocol(gl.Contract):
     """
     PoW Lending Protocol Enterprise Engine.
@@ -144,7 +129,15 @@ class PoWLendingProtocol(gl.Contract):
     markets: TreeMap[str, str]
     market_ids: DynArray[str]
     borrowers: TreeMap[str, str]
-    state: ProtocolState
+    total_processed: u256
+    total_approved: u256
+    total_rejected: u256
+    total_revoked: u256
+    total_capital_requested: u256
+    total_capital_approved: u256
+    global_risk_index_bps: u256
+    macro_risk_reasoning: str
+    last_macro_rebalance: str
     roles: TreeMap[str, str]
     treasury_balance: u256
 
@@ -164,17 +157,16 @@ class PoWLendingProtocol(gl.Contract):
         self.market_ids = DynArray()
         self.borrowers = TreeMap()
 
-        self.state = ProtocolState(
-            total_processed=u256(0),
-            total_approved=u256(0),
-            total_rejected=u256(0),
-            total_revoked=u256(0),
-            total_capital_requested=u256(0),
-            total_capital_approved=u256(0),
-            global_risk_index_bps=u256(0),
-            macro_risk_reasoning="Awaiting first risk rebalance.",
-            last_macro_rebalance=""
-        )
+        self.total_processed = u256(0)
+        self.total_approved = u256(0)
+        self.total_rejected = u256(0)
+        self.total_revoked = u256(0)
+        self.total_capital_requested = u256(0)
+        self.total_capital_approved = u256(0)
+        self.global_risk_index_bps = u256(5000)
+        self.macro_risk_reasoning = "Initial deployment."
+        self.last_macro_rebalance = ""
+
         self.pool_counter = u256(0)
         self.treasury_balance = u256(0)
 
@@ -520,10 +512,10 @@ Output a JSON with exactly two fields:
         try:
             data = result
             if isinstance(data, str): data = json.loads(data)
-            self.state.global_risk_index_bps = u256(_clamp_bps(int(data.get("global_risk_bps", 5000))))
-            self.state.macro_risk_reasoning = str(data.get("reasoning", "No reasoning provided."))
+            self.global_risk_index_bps = u256(_clamp_bps(int(data.get("global_risk_bps", 5000))))
+            self.macro_risk_reasoning = str(data.get("reasoning", "No reasoning provided."))
         except Exception as e:
-            self.state.macro_risk_reasoning = f"Parse exception: {str(e)}"
+            self.macro_risk_reasoning = f"Parse exception: {str(e)}"
             
         return True
 
@@ -610,7 +602,7 @@ Output a JSON with exactly two fields:
         self._save_market(market_id, market)
         self.market_ids.append(market_id)
         
-        self.state.total_capital_requested = u256(int(self.state.total_capital_requested) + requested_amount)
+        self.total_capital_requested = u256(int(self.total_capital_requested) + requested_amount)
         return True
 
     @gl.public.write
@@ -772,12 +764,12 @@ Output a JSON with exactly two fields:
         self.proposals[proposal_id] = prop
         
         # Update System Metrics
-        self.state.total_processed = u256(int(self.state.total_processed) + 1)
+        self.total_processed = u256(int(self.total_processed) + 1)
         if prop.status == "APPROVED":
-            self.state.total_approved = u256(int(self.state.total_approved) + 1)
-            self.state.total_capital_approved = u256(int(self.state.total_capital_approved) + amount)
+            self.total_approved = u256(int(self.total_approved) + 1)
+            self.total_capital_approved = u256(int(self.total_capital_approved) + amount)
         else:
-            self.state.total_rejected = u256(int(self.state.total_rejected) + 1)
+            self.total_rejected = u256(int(self.total_rejected) + 1)
             
         # Recalculate global risk index
         self._recalculate_global_risk()
@@ -820,8 +812,8 @@ Output a JSON with exactly two fields:
             interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
             prop.debt = u256(loan_amount + interest_amount)
             
-            self.state.total_approved = u256(int(self.state.total_approved) + 1)
-            self.state.total_capital_approved = u256(int(self.state.total_capital_approved) + loan_amount)
+            self.total_approved = u256(int(self.total_approved) + 1)
+            self.total_capital_approved = u256(int(self.total_capital_approved) + loan_amount)
             
         # EFFECT: Save state
         self.proposals[proposal_id] = prop
@@ -909,9 +901,9 @@ Output a JSON with exactly two fields:
                 if loan_amount > 0:
                     _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
                 
-                self.state.total_rejected = u256(int(self.state.total_rejected) - 1)
-                self.state.total_approved = u256(int(self.state.total_approved) + 1)
-                self.state.total_capital_approved = u256(int(self.state.total_capital_approved) + loan_amount)
+                self.total_rejected = u256(int(self.total_rejected) - 1)
+                self.total_approved = u256(int(self.total_approved) + 1)
+                self.total_capital_approved = u256(int(self.total_capital_approved) + loan_amount)
             
         self.proposals[proposal_id] = prop
         return True
@@ -1091,11 +1083,11 @@ Output a JSON with exactly two fields:
         prop.last_updated = self._now()
         self.proposals[proposal_id] = prop
         
-        self.state.total_revoked = u256(int(self.state.total_revoked) + 1)
+        self.total_revoked = u256(int(self.total_revoked) + 1)
         
         if old_status == "APPROVED":
-            self.state.total_approved = u256(int(self.state.total_approved) - 1)
-            self.state.total_capital_approved = u256(int(self.state.total_capital_approved) - int(prop.requested_amount))
+            self.total_approved = u256(int(self.total_approved) - 1)
+            self.total_capital_approved = u256(int(self.total_capital_approved) - int(prop.requested_amount))
             self._recalculate_global_risk()
             
         return True
@@ -1173,12 +1165,12 @@ Output a JSON with exactly two fields:
         """Lightweight ping to verify VM responsiveness and metrics."""
         return json.dumps({
             "status": "Healthy",
-            "active_proposals": int(self.state.total_processed),
+            "active_proposals": int(self.total_processed),
             "approval_ratio_bps": _calculate_approval_ratio(
-                int(self.state.total_approved),
-                int(self.state.total_processed)
+                int(self.total_approved),
+                int(self.total_processed)
             ),
-            "global_risk_index": int(self.state.global_risk_index_bps)
+            "global_risk_index": int(self.global_risk_index_bps)
         })
 
     @gl.public.view
@@ -1228,7 +1220,7 @@ Output a JSON with exactly two fields:
             return "0.0"
             
         risk = int(p.risk_score)
-        global_risk = int(self.state.global_risk_index_bps)
+        global_risk = int(self.global_risk_index_bps)
         
         # If the loan is riskier than the global average, penalize heavily.
         if risk > global_risk and global_risk > 0:
@@ -1395,8 +1387,8 @@ Output a JSON with exactly two fields:
     @gl.public.view
     def get_macro_risk(self) -> str:
         return json.dumps({
-            "global_risk_bps": int(self.state.global_risk_index_bps),
-            "macro_risk_reasoning": self.state.macro_risk_reasoning
+            "global_risk_bps": int(self.global_risk_index_bps),
+            "macro_risk_reasoning": self.macro_risk_reasoning
         })
 
     def _recalculate_global_risk(self):
@@ -1422,9 +1414,9 @@ Output a JSON with exactly two fields:
             idx -= 1
             
         if total_weight > 0:
-            self.state.global_risk_index_bps = u256(total_risk // total_weight)
+            self.global_risk_index_bps = u256(total_risk // total_weight)
         else:
-            self.state.global_risk_index_bps = u256(0)
+            self.global_risk_index_bps = u256(0)
 
 
 # -----------------------------------------------------------------------------
