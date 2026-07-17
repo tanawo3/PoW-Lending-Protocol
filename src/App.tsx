@@ -11,7 +11,7 @@ import { SplitText } from './components/SplitText';
 import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
 import { FooterCTA } from './components/FooterCTA';
-import { CustomCursor } from './components/CustomCursor';
+
 import { BGMController } from './components/BGMController';
 import { AboutModal } from './components/AboutModal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -93,7 +93,7 @@ export default function App() {
         }} 
       />
       
-      <CustomCursor />
+
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
 
       {/* Stark Navbar */}
