@@ -120,7 +120,7 @@ class PoWLendingProtocol(gl.Contract):
     market_ids: DynArray[str]
     borrowers: TreeMap[str, str]
     state: ProtocolState
-    owner: str
+    roles: TreeMap[str, str]
     treasury_balance: u256
 
     def __init__(self):
@@ -128,7 +128,8 @@ class PoWLendingProtocol(gl.Contract):
         Initializes the state trees. TreeMaps provide O(log n) deterministic
         lookups, satisfying strict GenLayer performance constraints.
         """
-        self.owner = str(gl.message.sender_address)
+        self.roles = TreeMap()
+        self.roles[str(gl.message.sender_address)] = "ADMIN"
         
         self.proposals = TreeMap()
         self.proposal_ids = DynArray()
@@ -200,7 +201,7 @@ class PoWLendingProtocol(gl.Contract):
 
     @gl.public.write
     def withdraw_protocol_fees(self, amount: int) -> None:
-        if str(gl.message.sender_address) != self.owner:
+        if self.roles.get(str(gl.message.sender_address)) != "ADMIN":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
         if amount <= 0:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Invalid amount")
@@ -302,7 +303,7 @@ Scoring guidance:
         max_loan_amount_wei: int,
         risk_tier: str
     ) -> str:
-        if str(gl.message.sender_address) != self.owner:
+        if self.roles.get(str(gl.message.sender_address)) != "ADMIN":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
             
         if risk_tier not in ["LOW", "MEDIUM", "HIGH"]:
@@ -593,7 +594,7 @@ Output a JSON with exactly two fields:
         Returns:
             bool: True if consensus was reached and state was updated.
         """
-        if str(gl.message.sender_address) != self.owner:
+        if self.roles.get(str(gl.message.sender_address)) != "ADMIN":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized: Only the owner can evaluate proposals")
             
         if proposal_id not in self.proposals:
@@ -998,7 +999,7 @@ Output a JSON with exactly two fields:
         Allows the owner/admin to mark a loan as defaulted if repayment is overdue.
         This triggers a massive penalty to the borrower's trust score.
         """
-        if str(gl.message.sender_address) != self.owner:
+        if self.roles.get(str(gl.message.sender_address)) != "ADMIN":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Owner only")
             
         if proposal_id not in self.proposals:
@@ -1224,7 +1225,7 @@ Output a JSON with exactly two fields:
         if proposal_id not in self.proposals:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Proposal not found")
         prop = self.proposals[proposal_id]
-        if str(gl.message.sender_address) != prop.borrower and str(gl.message.sender_address) != self.owner:
+        if str(gl.message.sender_address) != prop.borrower and self.roles.get(str(gl.message.sender_address)) != "ADMIN":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
             
         prop.plaintext_evidence = plaintext
@@ -1786,3 +1787,20 @@ def _parse_arbitrator_verdict(analysis) -> str:
     if not isinstance(analysis, dict): return "UPHOLD"
     v = str(analysis.get("verdict", "UPHOLD")).upper()
     return "OVERTURN" if v == "OVERTURN" else "UPHOLD"
+    @gl.public.write
+    def grant_role(self, account: str, role: str) -> bool:
+        """Grants an RBAC role to an account (DAO Governance)."""
+        if self.roles.get(str(gl.message.sender_address)) != "ADMIN":
+            raise gl.vm.UserError("Unauthorized: Must be ADMIN to grant roles")
+        self.roles[account] = role.upper()
+        return True
+
+    @gl.public.write
+    def revoke_role(self, account: str) -> bool:
+        """Revokes all roles from an account."""
+        if self.roles.get(str(gl.message.sender_address)) != "ADMIN":
+            raise gl.vm.UserError("Unauthorized: Must be ADMIN to revoke roles")
+        self.roles[account] = "NONE"
+        return True
+
+    
