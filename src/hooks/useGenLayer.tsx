@@ -250,8 +250,8 @@ export const useGenLayer = () => {
         timestamp: Date.now()
       });
       
-      const receipt = const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+      const receipt: any = await (client as any).waitForTransactionReceipt({ hash });
+      if (receipt && receipt.status !== 'ACCEPTED') throw new Error(`Deploy reverted: ${receipt.status}`);
       const deployedAddress = findDeployedAddress(receipt, address);
 
       if (receipt && deployedAddress) {
