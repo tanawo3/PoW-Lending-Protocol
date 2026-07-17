@@ -20,7 +20,11 @@ async function main() {
   const code = readFileSync(path.join(__dirname, '../contracts/PoWLendingProtocol.py'), 'utf-8');
 
   console.log("Deploying PoW Lending Protocol...");
-  const hash = await client.deployContract({ code, args: [] });
+  const hash = await client.deployContract({ 
+      abi: [],
+      bytecode: `0x${Buffer.from(code, 'utf8').toString('hex')}`,
+      args: [] 
+  });
   console.log("Tx Hash:", hash);
   
   const receipt = await client.waitForTransactionReceipt({

@@ -388,9 +388,15 @@ export const useGenLayer = () => {
         }
       }
       
+      const contractStr = contractCode as string;
+      const bytecode = '0x' + Array.from(new TextEncoder().encode(contractStr))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
+          
       const hash = await (client as any).deployContract({
         account: address ? { address } : undefined,
-        code: contractCode as string,
+        abi: [],
+        bytecode: bytecode,
         args: [],
       });
 
@@ -436,7 +442,7 @@ export const useGenLayer = () => {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
 
-          const result = await (client as any).readContract({
+          const result = await (client as any).readContract({ abi: [],
               address: contractAddress,
               functionName: 'fetch_all_proposals',
               args: [0, 50] // Pagination: offset=0, limit=50
@@ -447,7 +453,7 @@ export const useGenLayer = () => {
               setProposals(parsed);
           }
           
-          const poolsResult = await (client as any).readContract({
+          const poolsResult = await (client as any).readContract({ abi: [],
               address: contractAddress,
               functionName: 'get_all_pools',
               args: [0, 50] // Pagination: offset=0, limit=50
@@ -458,7 +464,7 @@ export const useGenLayer = () => {
               setPools(parsedPools);
           }
           
-          const marketsResult = await (client as any).readContract({
+          const marketsResult = await (client as any).readContract({ abi: [],
               address: contractAddress,
               functionName: 'get_all_markets',
               args: [0, 50] // Pagination: offset=0, limit=50
@@ -470,7 +476,7 @@ export const useGenLayer = () => {
           }
           
           try {
-              const macroRiskResult = await (client as any).readContract({
+              const macroRiskResult = await (client as any).readContract({ abi: [],
                   address: contractAddress,
                   functionName: 'get_macro_risk',
                   args: []
@@ -526,7 +532,7 @@ export const useGenLayer = () => {
               }
           }
 
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_proposal',
@@ -554,7 +560,7 @@ export const useGenLayer = () => {
       if (!contractAddress || !borrowerAddr) return null;
       try {
           const client = getGenLayerClient(network, address);
-          const result = await (client as any).readContract({ address: contractAddress, functionName: 'get_borrower_profile', args: [borrowerAddr] });
+          const result = await (client as any).readContract({ abi: [], address: contractAddress, functionName: 'get_borrower_profile', args: [borrowerAddr] });
           if (result) {
               return JSON.parse(result as string) as BorrowerProfile;
           }
@@ -582,7 +588,7 @@ export const useGenLayer = () => {
               }
           }
 
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'evaluate_proposal',
@@ -616,7 +622,7 @@ export const useGenLayer = () => {
           if (typeof (client as any).connect === 'function') {
               try { await (client as any).connect(network); } catch (connErr: any) {}
           }
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'repay_loan',
@@ -639,7 +645,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'appeal_loan_decision',
@@ -664,7 +670,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'ai_vouch',
@@ -688,7 +694,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'revoke_proposal',
@@ -712,7 +718,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'create_pool',
@@ -737,7 +743,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'create_targeted_pool',
@@ -763,7 +769,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'rebalance_macro_risk',
@@ -788,7 +794,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'deposit_liquidity',
@@ -813,7 +819,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'withdraw_liquidity',
@@ -837,7 +843,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_identity_verification',
@@ -862,7 +868,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'accept_conditional_offer',
@@ -885,7 +891,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'withdraw_protocol_fees',
@@ -906,7 +912,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'mark_default',
@@ -927,7 +933,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          return await (client as any).readContract({ address: contractAddress, functionName: 'simulate_loan_default_probability', args: [proposal_id] });
+          return await (client as any).readContract({ abi: [], address: contractAddress, functionName: 'simulate_loan_default_probability', args: [proposal_id] });
       } catch (e: any) {
           console.error(e);
           return "0.0";
@@ -938,7 +944,7 @@ export const useGenLayer = () => {
       if (!contractAddress) return "Not connected";
       try {
           const client = getGenLayerClient(network, address);
-          return await (client as any).readContract({ address: contractAddress, functionName: 'perform_health_check', args: [] });
+          return await (client as any).readContract({ abi: [], address: contractAddress, functionName: 'perform_health_check', args: [] });
       } catch (e) {
           return "Health check failed";
       }
@@ -948,7 +954,7 @@ export const useGenLayer = () => {
       if (!contractAddress) return "Not connected";
       try {
           const client = getGenLayerClient(network, address);
-          return await (client as any).readContract({ address: contractAddress, functionName: 'export_state_snapshot', args: [offset, limit] });
+          return await (client as any).readContract({ abi: [], address: contractAddress, functionName: 'export_state_snapshot', args: [offset, limit] });
       } catch (e) {
           return "Snapshot export failed";
       }
@@ -958,7 +964,7 @@ export const useGenLayer = () => {
       if (!contractAddress) return "Unknown";
       try {
           const client = getGenLayerClient(network, address);
-          return await (client as any).readContract({ address: contractAddress, functionName: 'get_contract_version', args: [] });
+          return await (client as any).readContract({ abi: [], address: contractAddress, functionName: 'get_contract_version', args: [] });
       } catch (e) {
           return "Unknown";
       }
@@ -968,7 +974,7 @@ export const useGenLayer = () => {
       if (!contractAddress) return "Unknown";
       try {
           const client = getGenLayerClient(network, address);
-          return await (client as any).readContract({ address: contractAddress, functionName: 'get_developer_metadata', args: [] });
+          return await (client as any).readContract({ abi: [], address: contractAddress, functionName: 'get_developer_metadata', args: [] });
       } catch (e) {
           return "Unknown";
       }
@@ -978,7 +984,7 @@ export const useGenLayer = () => {
       if (!contractAddress) return false;
       try {
           const client = getGenLayerClient(network, address);
-          return await (client as any).readContract({ address: contractAddress, functionName: 'verify_node_compliance', args: [node_id] });
+          return await (client as any).readContract({ abi: [], address: contractAddress, functionName: 'verify_node_compliance', args: [node_id] });
       } catch (e) {
           return false;
       }
@@ -990,7 +996,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_encrypted_evidence',
@@ -1012,7 +1018,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'reveal_agreement',
@@ -1035,7 +1041,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'place_bet',
@@ -1058,7 +1064,7 @@ export const useGenLayer = () => {
       try {
           const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
           const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
+          const hash = await (client as any).writeContract({ abi: [],
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'resolve_market',
@@ -1079,7 +1085,7 @@ export const useGenLayer = () => {
     try {
         const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
         const client = getGenLayerClient(network, address, provider);
-        const result = await (client as any).readContract({
+        const result = await (client as any).readContract({ abi: [],
             address: contractAddress,
             functionName: 'check_pool_solvency',
             args: [pool_id]
