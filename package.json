@@ -1,0 +1,14 @@
+{
+  "name": "pow-lending-protocol",
+  "version": "1.0.0",
+  "description": "Uncollateralized lending protocol powered by GenLayer AI subjective consensus",
+  "scripts": {
+    "deploy": "node scripts/deploy.mjs",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build"
+  },
+  "dependencies": {
+    "genlayer-js": "^0.1.0",
+    "dotenv": "^16.4.5"
+  }
+}

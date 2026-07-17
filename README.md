@@ -1,35 +1,49 @@
 # PoW Lending Protocol
 
-# PoW Lending Protocol
+An uncollateralized lending protocol powered by **GenLayer Intelligent Smart Contracts**.
 
-**Live Demo:** [Vercel Link Here]
-**Video Walkthrough:** [YouTube/Loom Link Here]
+## Overview
+Traditional DeFi requires massive overcollateralization (e.g., lock $150 to borrow $100). The PoW Lending Protocol leverages GenLayer's AI subjective consensus engine to underwrite loans based on a developer's real-world Proof-of-Work (GitHub pull requests, code quality, DAO participation) without requiring capital collateral.
 
-## What It Does
-PoW Lending Protocol is a decentralized DeFi lending platform that issues undercollateralized loans based on **Proof of Work** rather than traditional capital collateral. Users submit links to their GitHub repositories or off-chain work. The smart contract uses GenLayer's AI to fetch this real-world data, analyze the quality of the work, and deterministically issue a credit score and loan terms.
+## Features
+- **AI Underwriting:** GenLayer validators fetch your GitHub repository, analyze the codebase, and reach consensus on your credit score and interest rate.
+- **Speculative Default Markets:** A built-in prediction market where users can bet on loan defaults, providing decentralized insurance for liquidity providers.
+- **Zero-Knowledge Evidence:** Borrowers can submit private, encrypted financial evidence.
+- **Holistic Solvency Mathematics:** Real-time health factor calculations that freeze protocol interactions if Debt-to-Collateral ratios exceed limits.
+- **100% Deterministic Execution:** The entire protocol uses strict integer division and deterministic PRNG seeded UI generation to guarantee Zero Consensus Divergence across nodes.
 
-## The Trust Problem It Solves
-Traditional DeFi protocols require 150%+ overcollateralization because smart contracts cannot "trust" a wallet's real-world reputation or off-chain skills. 
-This protocol solves the trust problem by using GenLayer's consensus to trustlessly read off-chain qualitative data (GitHub commits, market fear & greed index). Instead of locking up $15k to borrow $10k, a builder can prove their value through their open-source contributions, which are evaluated and verified by the network validators.
+## Ecosystem Parity
+This project enforces "Holistic Parity". 
+The deployment scripts synchronize automatically with the frontend.
 
-## Key Features
-- **Validator-Driven Proof-of-Work Verification**: Uses `gl.nondet.web.get` to fetch GitHub data and form network consensus on the borrower's code quality.
-- **Pre-Vote Fraud Radar**: Sybil resistance via AI heuristic analysis of wallet telemetry.
-- **Macro Risk Rebalancing**: Fetches live BTC prices and the Fear & Greed Index from external APIs to dynamically adjust protocol interest rates.
-- **Liquidity Pools & Prediction Markets**: LPs can provide capital, and speculators can bet on whether a loan will default based on the AI's published reasoning.
-- **Appeals & Social Vouching**: Rejected applicants can appeal to a Supreme Arbitrator AI, or have trusted wallets "vouch" for them.
+### 1. Installation
+Install the root and frontend dependencies:
+```bash
+npm install
+cd frontend && npm install && cd ..
+```
 
-## Architecture
+### 2. Setup
+Create a `.env` file in the root directory:
+```env
+GENLAYER_PRIVATE_KEY=0x_YOUR_PRIVATE_KEY
+```
 
-- **Frontend**: React + Vite + Tailwind CSS
-- **Blockchain SDK**: `genlayer-js`
-- **Smart Contracts**: GenLayer Python VM
+### 3. Deploy Contract & Sync
+Run the automated deployment script. This will compile the GenVM contract, deploy it to GenLayer testnet, and automatically inject the new contract address into your `frontend/.env` file.
+```bash
+npm run deploy
+```
 
-## How to Use
+### 4. Run the WebApp
+```bash
+npm run dev
+```
 
-2. **Deploy Contract**: Navigate to the `scripts/` directory and use the deployment script to deploy `contracts/PoWLendingProtocol.py` to the network.
-3. **Start Frontend**: Navigate to the `frontend/` directory and run `npm install` and `npm run dev`.
-4. **Trigger Macro Risk**: In the UI, click "Rebalance Macro Risk" to have the contract fetch real-world data and set the global interest rate.
-5. **Submit a Loan**: Enter an amount and your GitHub repository URL. The contract will evaluate your code and either approve or reject your loan.
-6. **Provide Liquidity / Speculate**: Deposit ATTO into Liquidity Pools or place bets in the Prediction Markets on pending loans.
+## Security
+- Follows the Checks-Effects-Interactions (CEI) Pattern for GenVM safely.
+- Avoids dictionary/list mutations to comply with GenVM State Transitions.
+- Implements `debugTraceTransaction` fallbacks for CORS-restricted environments.
 
+## License
+MIT License
