@@ -159,7 +159,7 @@ export const useGenLayer = () => {
   const [address, setAddress] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [contractAddress, setContractAddress] = useState<string>(
-    localStorage.getItem('POW_CONTRACT_ADDRESS_V2') || GLOBAL_CONTRACT_ADDRESS
+    localStorage.getItem('POW_CONTRACT_ADDRESS_V3') || GLOBAL_CONTRACT_ADDRESS
   );
   const [network, setNetwork] = useState<GenLayerNetwork>('studionet');
   const [networkName, setNetworkName] = useState<string>('Genlayer Studio Network');
@@ -179,7 +179,7 @@ export const useGenLayer = () => {
     else if (network === 'studionet') setNetworkName('Genlayer Studio Network');
     else setNetworkName('Genlayer Localnet');
 
-    setContractAddress(localStorage.getItem('POW_CONTRACT_ADDRESS_V2') || GLOBAL_CONTRACT_ADDRESS);
+    setContractAddress(localStorage.getItem('POW_CONTRACT_ADDRESS_V3') || GLOBAL_CONTRACT_ADDRESS);
     setError(null);
   }, [network, setContractAddress]);
 
@@ -255,7 +255,7 @@ export const useGenLayer = () => {
 
       if (receipt && deployedAddress) {
           setContractAddress(deployedAddress);
-          localStorage.setItem('POW_CONTRACT_ADDRESS_V2', deployedAddress);
+          localStorage.setItem('POW_CONTRACT_ADDRESS_V3', deployedAddress);
           updateTxStatus(hash, 'success');
       } else {
           updateTxStatus(hash, 'failed', 'Receipt did not contain contractAddress');

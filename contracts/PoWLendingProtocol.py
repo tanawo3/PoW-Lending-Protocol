@@ -135,17 +135,6 @@ Return ONLY valid JSON matching this schema:
 # =============================================================================
 @allow_storage
 @dataclass
-class ProtocolState:
-    total_loans: u256
-    total_approved: u256
-    total_rejected: u256
-    total_defaulted: u256
-    total_revoked: u256
-    total_capital_approved: u256
-    global_risk_index_bps: u256
-
-@allow_storage
-@dataclass
 class PoWSubmission:
     proposal_id: str
     borrower: str
@@ -177,7 +166,13 @@ class PoWLendingProtocol(gl.Contract):
 
     def __init__(self):
         self.owner = str(gl.message.sender_address)
-        self.state = ProtocolState(u256(0), u256(0), u256(0), u256(0), u256(0), u256(0), u256(0))
+        self.total_loans = u256(0)
+        self.total_approved = u256(0)
+        self.total_rejected = u256(0)
+        self.total_defaulted = u256(0)
+        self.total_revoked = u256(0)
+        self.total_capital_approved = u256(0)
+        self.global_risk_index_bps = u256(0)
         self.pool_counter = u256(0)
         self.treasury_balance = u256(0)
         self.market_counter = u256(0)
@@ -288,8 +283,8 @@ class PoWLendingProtocol(gl.Contract):
         prof = self._get_borrower(str(gl.message.sender_address))
         if not prof.get("kyc_verified", False): raise gl.vm.UserError(f"{ERROR_EXPECTED} KYC Required")
         
-        pid = f"prop_{int(self.state.total_loans)}"
-        self.state.total_loans = u256(int(self.state.total_loans) + 1)
+        pid = f"prop_{int(self.total_loans)}"
+        self.total_loans = u256(int(self.total_loans) + 1)
         
         self.proposals[pid] = PoWSubmission(
             proposal_id=pid, borrower=str(gl.message.sender_address), requested_amount=u256(requested_amount),
@@ -340,12 +335,12 @@ class PoWLendingProtocol(gl.Contract):
             self._save_pool(prop.pool_id, pool)
             prop.debt = u256(int(prop.requested_amount) + (int(prop.requested_amount) // 20)) # 5% Interest
             _NativeRecipient(Address(prop.borrower)).emit_transfer(value=prop.requested_amount)
-            self.state.total_approved = u256(int(self.state.total_approved) + 1)
-            self.state.total_capital_approved = u256(int(self.state.total_capital_approved) + int(prop.requested_amount))
+            self.total_approved = u256(int(self.total_approved) + 1)
+            self.total_capital_approved = u256(int(self.total_capital_approved) + int(prop.requested_amount))
             self._recalculate_global_risk()
         else:
             prop.status = "REJECTED"
-            self.state.total_rejected = u256(int(self.state.total_rejected) + 1)
+            self.total_rejected = u256(int(self.total_rejected) + 1)
             if int(prop.collateral) > 0:
                 _NativeRecipient(Address(prop.borrower)).emit_transfer(value=prop.collateral)
                 prop.collateral = u256(0)
@@ -380,7 +375,7 @@ class PoWLendingProtocol(gl.Contract):
         if decision["verdict"] == "OVERTURN":
             prop.status = "APPROVED"
             prop.ai_reasoning += " [OVERTURNED BY ARBITRATION]"
-            self.state.total_approved = u256(int(self.state.total_approved) + 1)
+            self.total_approved = u256(int(self.total_approved) + 1)
             
         self.proposals[proposal_id] = prop
         return True
@@ -430,7 +425,7 @@ class PoWLendingProtocol(gl.Contract):
         prop.ai_reasoning = "Marked as DEFAULTED by admin."
         self.proposals[proposal_id] = prop
         
-        self.state.total_defaulted = u256(int(self.state.total_defaulted) + 1)
+        self.total_defaulted = u256(int(self.total_defaulted) + 1)
         
         profile = self._get_borrower(prop.borrower)
         profile["wallet_trust_score"] = max(0, int(profile.get("wallet_trust_score", 0)) - 50)
@@ -452,11 +447,11 @@ class PoWLendingProtocol(gl.Contract):
         prop.ai_reasoning = "Revoked by borrower."
         prop.last_updated = self._now()
         self.proposals[proposal_id] = prop
-        self.state.total_revoked = u256(int(self.state.total_revoked) + 1)
+        self.total_revoked = u256(int(self.total_revoked) + 1)
         
         if old_status == "APPROVED":
-            self.state.total_approved = u256(int(self.state.total_approved) - 1)
-            self.state.total_capital_approved = u256(int(self.state.total_capital_approved) - int(prop.requested_amount))
+            self.total_approved = u256(int(self.total_approved) - 1)
+            self.total_capital_approved = u256(int(self.total_capital_approved) - int(prop.requested_amount))
             self._recalculate_global_risk()
         return True
 
@@ -473,7 +468,7 @@ class PoWLendingProtocol(gl.Contract):
                 total_risk += (amt * int(p.risk_score))
                 count += 1
             idx -= 1
-        self.state.global_risk_index_bps = u256(total_risk // total_weight) if total_weight > 0 else u256(0)
+        self.global_risk_index_bps = u256(total_risk // total_weight) if total_weight > 0 else u256(0)
 
     # =============================================================================
     # SPECULATIVE MARKETS (DeFi Betting)
