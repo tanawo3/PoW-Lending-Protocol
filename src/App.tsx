@@ -134,7 +134,7 @@ export default function App() {
               onMouseEnter={playHover}
               onClick={async () => {
                 playClick();
-                localStorage.removeItem('POW_CONTRACT_FINAL');
+                localStorage.removeItem('POW_CONTRACT_ADDRESS_V2');
                 genLayer.setContractAddress('');
                 await deployContract();
               }}

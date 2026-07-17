@@ -194,12 +194,9 @@ export const useGenLayer = () => {
     else if (network === 'studionet') setNetworkName('Genlayer Studio Network');
     else setNetworkName('Genlayer Localnet');
 
-    const saved = localStorage.getItem('POW_CONTRACT_FINAL');
-    if (saved) {
-      setContractAddress(saved);
-    }
+    setContractAddress(localStorage.getItem('POW_CONTRACT_ADDRESS_V3') || GLOBAL_CONTRACT_ADDRESS);
     setError(null);
-  }, [network]);
+  }, [network, setContractAddress]);
 
   const connect = useCallback(async () => {
     setError(null);
@@ -267,13 +264,13 @@ export const useGenLayer = () => {
         timestamp: Date.now()
       });
       
-      const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-      if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Deploy reverted: ${receiptObj.status}`);
-      const deployedAddress = findDeployedAddress(receiptObj, address);
+      const receipt: any = await (client as any).waitForTransactionReceipt({ hash });
+      if (receipt && receipt.status !== 'ACCEPTED') throw new Error(`Deploy reverted: ${receipt.status}`);
+      const deployedAddress = findDeployedAddress(receipt, address);
 
-      if (receiptObj && deployedAddress) {
+      if (receipt && deployedAddress) {
           setContractAddress(deployedAddress);
-          localStorage.setItem('POW_CONTRACT_FINAL', deployedAddress);
+          localStorage.setItem('POW_CONTRACT_ADDRESS_V3', deployedAddress);
           updateTxStatus(hash, 'success');
           addToast("Contract deployed successfully", 'success');
       } else {
@@ -303,7 +300,7 @@ export const useGenLayer = () => {
 
         const result = await (client as any).readContract({
             address: contractAddress,
-            functionName: 'fetch_all_proposals',
+            functionName: 'get_all_proposals',
             args: []
         });
 
@@ -346,7 +343,7 @@ export const useGenLayer = () => {
     }
   }, [contractAddress, address, network, networkName]);
   
-  const submitProposal = async (proposal_id: string, requested_amount: number, pow_submission: string, wallet_age_days: number, total_transactions: number, avg_balance_usd: number, value: bigint, target_pool_id: string = "") => {
+  const submitProposal = async (pow_submission: string, requested_amount: number, value: bigint, target_pool_id: string = "") => {
       if (!contractAddress) return;
       setError(null);
 
@@ -366,13 +363,13 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_proposal',
-              args: [pow_submission, requested_amount, target_pool_id]
+              args: [pow_submission, requested_amount, target_pool_id],
+              value: value
           });
           
           addTx({
             hash,
             type: 'submit_proposal',
-            proposal_id,
             status: 'pending',
             timestamp: Date.now()
           });
@@ -557,6 +554,34 @@ export const useGenLayer = () => {
           setIsEvaluating(false);
       }
   };
+
+  const withdrawLiquidity = async (pool_id: string, amount: bigint) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'withdraw_liquidity',
+              args: [pool_id, Number(amount)]
+          });
+          addTx({ hash, type: 'withdraw_liquidity', status: 'pending', timestamp: Date.now() });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+          addToast(`Successfully withdrew ${Number(amount)/10**18} GEN`, 'success');
+      } catch (e: any) {
+          setError("Withdraw failed: " + stripErrorPrefix(e.message));
+          addToast("Withdraw failed: " + stripErrorPrefix(e.message), 'error');
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
 
 
   const submitIdentityVerification = async (ipfsHash: string) => {
@@ -762,6 +787,7 @@ export const useGenLayer = () => {
     appealLoanDecision,
     createPool,
     depositLiquidity,
+    withdrawLiquidity,
     submitIdentityVerification,
     markDefault,
     submitEncryptedEvidence,

@@ -44,6 +44,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
     await genLayer.submitProposal(
       payloadStr,
       parseInt(requestedAmount, 10), 
+      BigInt(parseInt(collateralAmount || '0', 10) * 10**18),
       targetPoolId || ""
     );
     setRequestedAmount('');
