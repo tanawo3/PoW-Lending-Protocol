@@ -285,8 +285,9 @@ Scoring guidance:
         try:
             if isinstance(result, str): decision = json.loads(result)
             else: decision = result if isinstance(result, dict) else {}
-            profile["kyc_status"] = decision.get("kyc_status", "VERIFIED")
-            profile["identity_score"] = int(decision.get("identity_score", 8500))
+            v = str(decision.get("kyc_status", "VERIFIED")).upper()
+            profile["kyc_status"] = "VERIFIED" if v == "VERIFIED" else "REJECTED"
+            profile["identity_score"] = _clamp_bps(int(decision.get("identity_score", 8500)))
             profile["kyc_reasoning"] = str(decision.get("reasoning", "Identity successfully verified by AI consensus."))
         except Exception:
             profile["kyc_status"] = "VERIFIED"
@@ -319,7 +320,7 @@ Scoring guidance:
 
         pool = {
             "pool_id": pool_id,
-            "name": name,
+            "name": _deep_sanitize(name)[:128],
             "target_return_bps": int(target_return_bps),
             "min_credit_score": int(min_credit_score),
             "max_loan_amount_wei": int(max_loan_amount_wei),
@@ -498,7 +499,7 @@ Output a JSON with exactly two fields:
         try:
             data = result
             if isinstance(data, str): data = json.loads(data)
-            self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
+            self.state.global_risk_index_bps = u256(_clamp_bps(int(data.get("global_risk_bps", 5000))))
             self.state.macro_risk_reasoning = str(data.get("reasoning", "No reasoning provided."))
         except Exception as e:
             self.state.macro_risk_reasoning = f"Parse exception: {str(e)}"
@@ -577,6 +578,8 @@ Output a JSON with exactly two fields:
         market = {
             "market_id": market_id,
             "loan_id": proposal_id,
+            "question": f"Will proposal {proposal_id} be repaid?",
+            "status": "OPEN",
             "total_default_bets": 0,
             "total_repay_bets": 0,
             "bettors": {},
@@ -713,12 +716,14 @@ Output a JSON with exactly two fields:
         try:
             if isinstance(decision_raw, str): decision = json.loads(decision_raw)
             else: decision = decision_raw if isinstance(decision_raw, dict) else {}
-            prop.status = decision["verdict"]
-            prop.ai_reasoning = decision["summary"]
-            prop.risk_score = u256(decision["risk_score"])
-            prop.wallet_trust_score = u256(decision["wallet_trust_score"])
-            prop.income_score = u256(decision["income_score"])
-            prop.reputation_score = u256(decision["reputation_score"])
+            
+            v = str(decision.get("verdict", "REJECTED")).upper()
+            prop.status = "APPROVED" if v == "APPROVED" else "REJECTED"
+            prop.ai_reasoning = str(decision.get("summary", "No reasoning provided."))[:2000]
+            prop.risk_score = u256(_clamp_bps(int(decision.get("risk_score", 0))))
+            prop.wallet_trust_score = u256(_clamp_bps(int(decision.get("wallet_trust_score", 0))))
+            prop.income_score = u256(_clamp_bps(int(decision.get("income_score", 0))))
+            prop.reputation_score = u256(_clamp_bps(int(decision.get("reputation_score", 0))))
         except Exception:
             prop.status = "REJECTED"
             prop.ai_reasoning = "Consensus formatting error."
@@ -844,14 +849,15 @@ Output a JSON with exactly two fields:
         try:
             if isinstance(decision_raw, str): decision = json.loads(decision_raw)
             else: decision = decision_raw if isinstance(decision_raw, dict) else {}
-
+            v = str(decision.get("verdict", "UPHOLD")).upper()
+            decision["verdict"] = "OVERTURN" if v == "OVERTURN" else "UPHOLD"
         except Exception: decision = {"verdict": "UPHOLD", "summary": "Error formatting consensus."}
         
         appeal_hist = self._loads(prop.appeal_history_json, [])
         appeal_hist.append({
             "dispute_evidence": dispute_evidence,
-            "verdict": decision["verdict"],
-            "summary": decision["summary"],
+            "verdict": decision.get("verdict", "UPHOLD"),
+            "summary": str(decision.get("summary", "No summary"))[:2000],
             "timestamp": self._now()
         })
         prop.appeal_history_json = json.dumps(appeal_hist)
@@ -928,7 +934,8 @@ Output a JSON with exactly two fields:
             else: decision = decision_raw if isinstance(decision_raw, dict) else {}
         except Exception: decision = {"vouch_quality_bps": 0, "summary": "Error parsing."}
         
-        quality = decision["vouch_quality_bps"]
+        prop.vouch_score = u256(_clamp_bps(int(decision.get("vouch_quality_bps", 0))))
+        quality = int(decision.get("vouch_quality_bps", 0))
         
         voucher_profile = self._get_borrower(voucher)
         voucher_identity_score = int(voucher_profile.get("identity_score", 1000))
