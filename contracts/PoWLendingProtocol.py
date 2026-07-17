@@ -1453,7 +1453,7 @@ def _handle_leader_error(leaders_res, leader_fn) -> bool:
         return False  # Leader failed, but validator succeeded -> Divergence
     except gl.vm.UserError as exc:
         validator_msg = exc.message if hasattr(exc, "message") else str(exc)
-        if validator_msg.startswith(ERROR_EXPECTED) or validator_msg.startswith(ERROR_EXTERNAL):
+        if validator_msg.startswith(ERROR_EXPECTED) or validator_msg.startswith(ERROR_EXTERNAL) or validator_msg.startswith(ERROR_LLM):
             return validator_msg == leader_msg
         if validator_msg.startswith(ERROR_TRANSIENT) and leader_msg.startswith(ERROR_TRANSIENT):
             return True
@@ -1465,8 +1465,7 @@ def _interpret_leader_prompt(borrower: str, amount: int, collateral: int, live_p
     """Generates the isolated underwriting context for the AI Leader."""
     return f"""You are the Lead Underwriter AI for the PoW Lending Protocol.
 
-BORROWER IDENTITY & TELEMETRY:
-- Wallet Address: {borrower}
+BORROWER TELEMETRY:
 - Requested Capital: {amount} ATTO
 - Collateral Provided: {collateral} ATTO
 - Live ETH Price (USD): {live_price}
@@ -1481,6 +1480,7 @@ DETERMINISTIC HEURISTICS (PRE-CALCULATED):
 {pool_criteria}
 
 <UNTRUSTED_DATA>
+WALLET ADDRESS: {borrower}
 POW SUBMISSION: {pow_sub}
 GITHUB DATA: {github_data}
 </UNTRUSTED_DATA>
@@ -1549,13 +1549,11 @@ def _clean_summary(analysis) -> str:
 def _interpret_arbitrator_prompt(pow_sub: str, prior_reasoning: str, dispute_evidence: str) -> str:
     return f"""You are the Supreme AI Arbitrator for PoW Lending Protocol.
 
-PRIOR EVALUATION:
-- Original Submission: {pow_sub}
-- Original AI Reasoning (Rejected): {prior_reasoning}
-
 UNTRUSTED DISPUTE EVIDENCE:
 <UNTRUSTED_DATA>
-{dispute_evidence}
+- Original Submission: {pow_sub}
+- Original AI Reasoning (Rejected): {prior_reasoning}
+- New Dispute Evidence: {dispute_evidence}
 </UNTRUSTED_DATA>
 
 ASSESSMENT GUIDELINES:
