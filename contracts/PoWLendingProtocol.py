@@ -420,6 +420,7 @@ Output a JSON with exactly two fields:
 """
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
             if isinstance(analysis, str):
+                analysis = analysis.strip().replace("```json", "").replace("```", "").strip()
                 try:
                     parsed = json.loads(analysis)
                     return json.dumps({
@@ -1538,6 +1539,7 @@ Return ONLY the following JSON:
 def _parse_ratio_bps(analysis) -> int:
     """Extracts, formats, and validates the risk ratio from JSON."""
     if isinstance(analysis, str):
+        analysis = analysis.strip().replace("```json", "").replace("```", "").strip()
         try: analysis = json.loads(analysis)
         except Exception: pass
     if not isinstance(analysis, dict):
@@ -1554,6 +1556,7 @@ def _parse_ratio_bps(analysis) -> int:
 def _parse_score(analysis, key: str) -> int:
     """Helper for granular subscores."""
     if isinstance(analysis, str):
+        analysis = analysis.strip().replace("```json", "").replace("```", "").strip()
         try: analysis = json.loads(analysis)
         except Exception: pass
     if not isinstance(analysis, dict): return 0
@@ -1567,6 +1570,7 @@ def _parse_score(analysis, key: str) -> int:
 def _parse_verdict(analysis) -> str:
     """Extracts and normalizes the verdict from JSON."""
     if isinstance(analysis, str):
+        analysis = analysis.strip().replace("```json", "").replace("```", "").strip()
         try: analysis = json.loads(analysis)
         except Exception: pass
     if not isinstance(analysis, dict):
@@ -1577,6 +1581,7 @@ def _parse_verdict(analysis) -> str:
 def _clean_summary(analysis) -> str:
     """Extracts, sanitizes, and bounds the summary text from JSON."""
     if isinstance(analysis, str):
+        analysis = analysis.strip().replace("```json", "").replace("```", "").strip()
         try: analysis = json.loads(analysis)
         except Exception: pass
     if isinstance(analysis, dict):
