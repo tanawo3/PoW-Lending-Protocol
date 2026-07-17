@@ -882,15 +882,12 @@ Output a JSON with exactly two fields:
         if excess > 0:
             refund_amount += excess
             
-        if refund_amount > 0:
-            _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(refund_amount))
-            
-        # Return principal + interest to the liquidity pool that funded it
+        # Update state FIRST (Checks-Effects-Interactions)
+        fee = debt // 100 # 1% treasury fee
+        pool_return = debt - fee
+        self.treasury_balance = u256(int(getattr(self, "treasury_balance", 0)) + fee)
+        
         if prop.pool_id:
-            fee = debt // 100 # 1% treasury fee
-            pool_return = debt - fee
-            self.treasury_balance = u256(int(getattr(self, "treasury_balance", 0)) + fee)
-            
             pool = self._get_pool(prop.pool_id)
             if pool:
                 pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) + pool_return
@@ -901,6 +898,11 @@ Output a JSON with exactly two fields:
         prop.debt = u256(0)
         prop.last_updated = self._now()
         self.proposals[proposal_id] = prop
+        
+        # Emit transfers AFTER state updates
+        if refund_amount > 0:
+            _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(refund_amount))
+            
         return True
 
     @gl.public.write
@@ -1191,8 +1193,9 @@ Output a JSON with exactly two fields:
         if market.get("resolved", False):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Market already resolved")
             
+        # Update state FIRST (Checks-Effects-Interactions)
         market["resolved"] = True
-        market["outcome"] = actual_outcome
+        market["actual_outcome"] = actual_outcome
         self._save_market(market_id, market)
         
         # Payout logic
