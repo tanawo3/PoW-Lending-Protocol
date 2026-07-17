@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 import { getGenLayerClient, GLOBAL_CONTRACT_ADDRESS, GenLayerNetwork } from '../utils/networkConfig';
 import contractCode from '../../contracts/PoWLendingProtocol.py?raw';
 
@@ -175,6 +176,12 @@ export const useGenLayer = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  useEffect(() => {
     if (network === 'bradbury') setNetworkName('Genlayer Bradbury Testnet');
     else if (network === 'studionet') setNetworkName('Genlayer Studio Network');
     else setNetworkName('Genlayer Localnet');
@@ -210,10 +217,18 @@ export const useGenLayer = () => {
 
   const addTx = useCallback((tx: GenTx) => {
     setRecentTransactions(prev => [tx, ...prev]);
+    if (tx.status === 'pending') {
+      toast.loading(`Transaction Processing: ${tx.type.replace(/_/g, ' ').toUpperCase()}`, { id: tx.hash });
+    }
   }, []);
 
   const updateTxStatus = useCallback((hash: string, status: 'success' | 'failed', err?: string) => {
     setRecentTransactions(prev => prev.map(t => t.hash === hash ? { ...t, status, error: err } : t));
+    if (status === 'success') {
+      toast.success('Transaction Confirmed!', { id: hash });
+    } else if (status === 'failed') {
+      toast.error(`Transaction Failed: ${err || 'Unknown Error'}`, { id: hash });
+    }
   }, []);
 
   const deployContract = useCallback(async () => {

@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Toaster, toast } from 'sonner';
 import { Wallet, Hexagon, XCircle, RefreshCw } from 'lucide-react';
 import { useGenLayer } from './hooks/useGenLayer';
 import { useSoundEffect } from './hooks/useSoundEffect';
@@ -85,6 +86,13 @@ export default function App() {
 
   return (
     <div className="min-h-[100dvh] w-full bg-[var(--bg-primary)] text-[var(--text-main)] font-sans relative selection:bg-black selection:text-white overflow-x-hidden">
+      <Toaster 
+        position="bottom-right" 
+        toastOptions={{ 
+          className: 'bg-[var(--bg-secondary)] text-[var(--text-main)] border border-[var(--text-main)] font-mono text-xs tracking-widest uppercase rounded-none shadow-2xl',
+          style: { borderRadius: '0px' }
+        }} 
+      />
       
       <CustomCursor />
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
@@ -142,31 +150,6 @@ export default function App() {
       </motion.header>
 
       <div className="w-full flex flex-col min-h-[100dvh] relative z-10">
-        
-        {/* Error Toast Notification */}
-        <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
-          <AnimatePresence>
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-                className="bg-[#da3d3d] text-white border border-red-900 shadow-2xl overflow-hidden min-w-[300px] max-w-md pointer-events-auto"
-              >
-                <div className="px-5 py-4 flex items-start gap-4">
-                  <XCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-200" />
-                  <div className="flex-1">
-                    <h4 className="font-mono text-xs uppercase tracking-widest text-red-200 mb-1">Transaction Error</h4>
-                    <p className="text-sm font-sans font-medium leading-relaxed">{error}</p>
-                  </div>
-                  <button onClick={() => setError(null)} className="hover:opacity-70 transition-opacity ml-2">
-                    <XCircle className="w-4 h-4 text-red-200" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
 
         <main className="flex-1 w-full flex flex-col">
           <AnimatePresence mode="wait">
