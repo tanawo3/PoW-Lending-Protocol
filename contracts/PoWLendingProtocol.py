@@ -79,8 +79,8 @@ class PoWSubmission:
     plaintext_evidence: str
     vouchers_json: str
     appeal_history_json: str
-    created_at: u256
-    last_updated: u256
+    created_at: str
+    last_updated: str
     expires_at: u256
     fraud_score: u256
     governance_score: u256
@@ -485,8 +485,8 @@ Output a JSON with exactly two fields:
             plaintext_evidence="",
             vouchers_json="{}",
             appeal_history_json="[]",
-            created_at=u256(self._now()),
-            last_updated=u256(self._now()),
+            created_at=self._now(),
+            last_updated=self._now(),
             expires_at=u256(0), # No expiry yet
             fraud_score=u256(0),
             governance_score=u256(0)
@@ -627,7 +627,7 @@ Output a JSON with exactly two fields:
         prop.wallet_trust_score = u256(decision["wallet_trust_score"])
         prop.income_score = u256(decision["income_score"])
         prop.reputation_score = u256(decision["reputation_score"])
-        prop.last_updated = u256(int(prop.last_updated) + 1)
+        prop.last_updated = self._now()
         if prop.status == "APPROVED":
             loan_amount = int(prop.requested_amount)
             
@@ -879,7 +879,7 @@ Output a JSON with exactly two fields:
             
         prop.status = "REPAID"
         prop.debt = u256(0)
-        prop.last_updated = u256(int(prop.last_updated) + 1)
+        prop.last_updated = self._now()
         self.proposals[proposal_id] = prop
         return True
 
@@ -943,7 +943,7 @@ Output a JSON with exactly two fields:
         old_status = prop.status
         prop.status = "REVOKED"
         prop.ai_reasoning = "Revoked by borrower."
-        prop.last_updated = u256(int(prop.last_updated) + 1)
+        prop.last_updated = self._now()
         self.proposals[proposal_id] = prop
         
         self.state.total_revoked = u256(int(self.state.total_revoked) + 1)
@@ -1102,7 +1102,7 @@ Output a JSON with exactly two fields:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Unauthorized")
             
         prop.encrypted_evidence = encrypted_payload
-        prop.last_updated = u256(int(prop.last_updated) + 1)
+        prop.last_updated = self._now()
         self.proposals[proposal_id] = prop
 
     @gl.public.write
