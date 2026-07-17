@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tooltip } from './Tooltip';
-import { useGenLayer } from '../hooks/useGenLayer';
+import { useGenLayer, ProposalState } from '../hooks/useGenLayer';
+import { SimulatedIPFSUploader } from './SimulatedIPFSUploader';
 import { Send, RefreshCw, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -245,7 +246,8 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
 
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Evidence Payload <Tooltip content="Paste a GitHub repository URL (e.g. https://github.com/user/repo). The AI will fetch and evaluate your code quality." /></label>
-                  <textarea value={powSubmission} onChange={e => setPowSubmission(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] p-5 text-sm font-medium text-[var(--text-main)] placeholder-[var(--text-muted)] focus:border-[var(--text-main)] focus:outline-none transition-all resize-none h-32 rounded-none mt-2" placeholder="Describe the proof of work..." required />
+                  <textarea value={powSubmission} onChange={e => setPowSubmission(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] p-5 text-sm font-medium text-[var(--text-main)] placeholder-[var(--text-muted)] focus:border-[var(--text-main)] focus:outline-none transition-all resize-none h-32 rounded-none mt-2" placeholder="Describe the proof of work or paste a repo URL..." required />
+                  <SimulatedIPFSUploader onUploadComplete={(cid) => setPowSubmission(cid)} />
                 </div>
                 
                 <button type="submit" className="btn-monolog group w-full mt-6 flex items-center justify-between overflow-hidden relative">
