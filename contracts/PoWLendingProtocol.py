@@ -2,7 +2,6 @@
 
 import json
 import re
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from genlayer import *
@@ -137,7 +136,6 @@ Return ONLY valid JSON matching this schema:
 # PART 3: PROTOCOL DATACLASSES
 # =============================================================================
 @allow_storage
-@dataclass
 class PoWSubmission:
     proposal_id: str
     borrower: str
@@ -166,9 +164,20 @@ class PoWLendingProtocol(gl.Contract):
     market_ids: DynArray[str]
     balances: TreeMap[str, u256]
     borrowers: TreeMap[str, str]
+    
+    total_loans: u256
+    total_approved: u256
+    total_rejected: u256
+    total_defaulted: u256
+    total_revoked: u256
+    total_capital_approved: u256
+    global_risk_index_bps: u256
+    pool_counter: u256
+    treasury_balance: u256
+    market_counter: u256
+    owner: str
 
     def __init__(self):
-        self.owner = _sender()
         self.total_loans = u256(0)
         self.total_approved = u256(0)
         self.total_rejected = u256(0)
@@ -179,6 +188,7 @@ class PoWLendingProtocol(gl.Contract):
         self.pool_counter = u256(0)
         self.treasury_balance = u256(0)
         self.market_counter = u256(0)
+        self.owner = _sender()
 
     def _now(self) -> str:
         try: return str(gl.block.timestamp)
