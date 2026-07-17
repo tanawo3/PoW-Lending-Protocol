@@ -7,16 +7,11 @@ export function AdminDashboard({ genLayer }: { genLayer: any }) {
   const { playHover, playClick } = useSoundEffect();
   const [proposalId, setProposalId] = useState('');
   
-  const handleRebalance = async () => {
-    playClick();
-    await genLayer.executeTransaction('rebalance_macro_risk', []);
-  };
-
   const handleMarkDefault = async (e: React.FormEvent) => {
     e.preventDefault();
     playClick();
     if (!proposalId) return;
-    await genLayer.executeTransaction('mark_default', [proposalId]);
+    await genLayer.markDefault(proposalId);
     setProposalId('');
   };
 
@@ -43,9 +38,7 @@ export function AdminDashboard({ genLayer }: { genLayer: any }) {
             Trigger the AI Oracle network to fetch live Fear & Greed index and crypto prices to adjust the systemic global risk index dynamically.
           </p>
           <button
-            onClick={handleRebalance}
-            onMouseEnter={playHover}
-            disabled={genLayer.isTxPending}
+            disabled={true}
             className="w-full btn-monolog flex items-center justify-center gap-2 bg-transparent text-[var(--text-main)] border border-[var(--text-main)] hover:bg-[var(--text-main)] hover:text-[var(--bg-primary)] px-6 py-4 uppercase font-mono tracking-widest text-sm transition-all disabled:opacity-50"
           >
             Trigger Macro Rebalance

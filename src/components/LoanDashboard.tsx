@@ -36,22 +36,20 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   
   const handleSubmitProposal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!proposalId || !requestedAmount || !powSubmission) return;
+    if (!requestedAmount || !powSubmission) return;
 
     const payloadObj = { evidence: powSubmission, github_contributions: githubContributions, dao_votes: daoVotes };
     const payloadStr = JSON.stringify(payloadObj);
     
     await genLayer.submitProposal(
-      proposalId, 
+      payloadStr,
       parseInt(requestedAmount, 10), 
-      payloadStr, 
-      parseInt(walletAgeDays, 10), 
-      parseInt(totalTx, 10), 
-      parseInt(avgBalance, 10), 
-      BigInt(collateralAmount),
-      targetPoolId
+      targetPoolId || ""
     );
-    setProposalId(''); setRequestedAmount(''); setPowSubmission(''); setGithubContributions(''); setDaoVotes(''); setCollateralAmount('0'); setTargetPoolId('');
+    setRequestedAmount('');
+    setPowSubmission('');
+    setGithubContributions('');
+    setDaoVotes('');
   };
 
   const handleEvaluate = async (id: string) => {
@@ -182,11 +180,6 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
               </div>
 
               <form onSubmit={handleSubmitProposal} className="flex flex-col gap-8">
-                <div className="flex flex-col gap-2 relative">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Request ID</label>
-                  <input type="text" value={proposalId} onChange={e => setProposalId(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="REQ-001" required />
-                </div>
-
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">USDC Allocation</label>
                   <input type="number" value={requestedAmount} onChange={e => setRequestedAmount(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1000" required />
@@ -202,24 +195,6 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                   </div>
                 </div>
                 
-                <div className="flex gap-4">
-                  <div className="flex flex-col gap-2 flex-1">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Wallet Age (Days)</label>
-                    <input type="number" value={walletAgeDays} onChange={e => setWalletAgeDays(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="365" />
-                  </div>
-                  <div className="flex flex-col gap-2 flex-1">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Total Tx</label>
-                    <input type="number" value={totalTx} onChange={e => setTotalTx(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="50" />
-                  </div>
-                  <div className="flex flex-col gap-2 flex-1">
-                    <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Avg Bal ($)</label>
-                    <input type="number" value={avgBalance} onChange={e => setAvgBalance(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="1500" />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Collateral Amount (GEN Wei)</label>
-                  <input type="number" value={collateralAmount} onChange={e => setCollateralAmount(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-xl font-medium text-[var(--text-main)] placeholder-[var(--border-light)] focus:border-[var(--text-main)] focus:outline-none transition-all rounded-none" placeholder="Enter collateral amount..." />
-                </div>
                 <div className="flex flex-col gap-2">
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Target LP Pool (Optional)</label>
                   <select value={targetPoolId} onChange={e => setTargetPoolId(e.target.value)} className="w-full bg-[var(--bg-primary)] border border-[var(--border-light)] py-3 px-4 text-sm font-mono uppercase text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none cursor-pointer">
@@ -466,8 +441,6 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Param Input (Node ID or Proposal ID)</label>
                   <input type="text" value={adminInput} onChange={e => setAdminInput(e.target.value)} className="w-full bg-transparent border-b border-[var(--border-light)] py-2 text-sm font-medium text-[var(--text-main)] focus:border-[var(--text-main)] focus:outline-none rounded-none" placeholder="Enter ID..." />
                 </div>
-                <button onClick={async () => setAdminOutput(await genLayer.simulateDefault(adminInput))} className="px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)]">Simulate Default</button>
-
               </div>
             </div>
 

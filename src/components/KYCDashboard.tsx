@@ -12,9 +12,8 @@ export function KYCDashboard({ genLayer }: { genLayer: any }) {
   const handleKYCSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     playClick();
-    if (!docHash || !selfieHash || !poaHash) return;
-    
-    await genLayer.executeTransaction('submit_identity_verification', [docHash, selfieHash, poaHash]);
+    if (!docHash) return;
+    await genLayer.submitIdentityVerification(docHash);
     setDocHash('');
     setSelfieHash('');
     setPoaHash('');

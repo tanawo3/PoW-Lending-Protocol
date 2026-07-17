@@ -524,30 +524,7 @@ export const useGenLayer = () => {
       }
   };
 
-  const createPool = async (name: string, target_return_bps: number, min_credit_score: number, max_loan_amount_wei: number, risk_tier: string) => {
-      if (!contractAddress) return;
-      setError(null);
-      setIsEvaluating(true);
-      try {
-          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
-          const client = getGenLayerClient(network, address, provider);
-          const hash = await (client as any).writeContract({
-              address: contractAddress,
-              account: address ? { address } : undefined,
-              functionName: 'create_pool',
-              args: [name, target_return_bps, max_loan_amount_wei]
-          });
-          addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
-          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
-          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
-          updateTxStatus(hash, 'success');
-          await fetchProposals();
-      } catch (e: any) {
-          setError("Failed to create pool: " + stripErrorPrefix(e.message));
-      } finally {
-          setIsEvaluating(false);
-      }
-  };
+
 
 
   const depositLiquidity = async (pool_id: string, amount: bigint) => {
@@ -579,7 +556,7 @@ export const useGenLayer = () => {
   };
 
 
-  const submitIdentityVerification = async (documentHash: string, selfieHash: string, proofOfAddressHash: string) => {
+  const submitIdentityVerification = async (ipfsHash: string) => {
       if (!contractAddress) return;
       setError(null);
       setIsEvaluating(true);
@@ -590,7 +567,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_identity_verification',
-              args: [documentHash]
+              args: [ipfsHash]
           });
           addTx({ hash, type: 'submit_identity_verification', status: 'pending', timestamp: Date.now() });
           const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
@@ -634,7 +611,7 @@ export const useGenLayer = () => {
 
 
 
-  const submitEncryptedEvidence = async (proposal_id: string, evidence_id: string, zk_proof_hash: string) => {
+  const submitEncryptedEvidence = async (proposal_id: string, encrypted_payload: string) => {
       if (!contractAddress) return;
       setError(null);
       try {
@@ -644,7 +621,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'submit_encrypted_evidence',
-              args: [proposal_id, zk_proof_hash]
+              args: [proposal_id, encrypted_payload]
           });
           addTx({ hash, type: 'submit_encrypted_evidence', proposal_id, status: 'pending', timestamp: Date.now() });
           const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
@@ -734,6 +711,30 @@ export const useGenLayer = () => {
           addToast("Failed to resolve market: " + stripErrorPrefix(e.message), 'error');
       } finally {
           setIsEvaluating(false);
+      }
+  };
+
+  const createPool = async (name: string, risk_tolerance_bps: number, min_deposit: number) => {
+      if (!contractAddress) return;
+      setError(null);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'create_pool',
+              args: [name, risk_tolerance_bps, min_deposit]
+          });
+          addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
+          updateTxStatus(hash, 'success');
+          await fetchProposals();
+          addToast("Pool created successfully!", 'success');
+      } catch (e: any) {
+          setError("Failed to create pool: " + stripErrorPrefix(e.message));
+          addToast("Failed to create pool: " + stripErrorPrefix(e.message), 'error');
       }
   };
 
