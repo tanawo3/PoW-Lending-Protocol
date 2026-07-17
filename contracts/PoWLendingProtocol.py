@@ -184,6 +184,34 @@ class PoWLendingProtocol(gl.Contract):
         try: return str(gl.block.timestamp)
         except: return "0"
 
+    @gl.public.view
+    def get_borrower_profile(self, address: str) -> str:
+        prof = self._get_borrower(address)
+        return json.dumps({
+            "completed_loans": prof.get("completed_loans", 0),
+            "late_payments": prof.get("late_payments", 0),
+            "defaults": prof.get("defaults", 0),
+            "repayment_score": prof.get("repayment_score", 100),
+            "fraud_risk_score": prof.get("fraud_risk_score", "0"),
+            "kyc_status": "VERIFIED" if prof.get("kyc_verified", False) else "UNVERIFIED"
+        })
+
+    @gl.public.view
+    def get_all_pools(self) -> str:
+        out = []
+        for pid in self.pool_ids:
+            p = self._get_pool(pid)
+            out.append(p)
+        return json.dumps(out)
+
+    @gl.public.view
+    def get_all_markets(self) -> str:
+        out = []
+        for mid in self.market_ids:
+            m = self._get_market(mid)
+            out.append(m)
+        return json.dumps(out)
+
     def _get_borrower(self, address: str) -> dict:
         b = getattr(self.borrowers, address, None)
         if b:
