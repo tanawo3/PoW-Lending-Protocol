@@ -1678,10 +1678,10 @@ ASSESSMENT GUIDELINES:
 2. Determine if the original rejection was a false positive (e.g., misidentified identity fraud).
 3. If the dispute is valid and compelling, OVERTURN the rejection. Otherwise, UPHOLD it.
 
-Return ONLY the following JSON:
+Return only JSON with this exact shape:
 {{
   "verdict": <"UPHOLD" | "OVERTURN">,
-  "summary": "<string, specific rationale for the verdict>"
+  "summary": "<concise but specific explanation>"
 }}"""
 
 def _interpret_vouch_prompt(voucher: str, pow_sub: str, rationale: str) -> str:
@@ -1700,11 +1700,18 @@ ASSESSMENT GUIDELINES:
 2. Is it detailed, specific, and technically sound, or just generic spam?
 3. Assign a quality score from 0 (spam) to 10000 (exceptional validation).
 
-Return ONLY the following JSON:
+Return only JSON with this exact shape:
 {{
-  "risk_score_bps": <int 0-10000>,
-  "summary": "<string, rationale>"
-}}"""
+  "risk_score_bps": <integer 0-10000>,
+  "summary": "<concise but specific explanation>"
+}}
+
+Scoring guidance:
+- 8000-10000: Exceptional (Detailed, technical, provides strong verification)
+- 5000-7999: Adequate (Helpful context, but lacks deep technical proof)
+- 2500-4999: Weak (Generic endorsement, "good project" without rationale)
+- 0-2499: Spam (Nonsense, irrelevant, or obviously fake vouching)
+"""
 
 def _parse_arbitrator_verdict(analysis) -> str:
     if not isinstance(analysis, dict): return "UPHOLD"
