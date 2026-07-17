@@ -100,6 +100,7 @@ class ProtocolState:
     total_capital_requested: u256
     total_capital_approved: u256
     global_risk_index_bps: u256
+    macro_risk_reasoning: str
 
 class PoWLendingProtocol(gl.Contract):
     """
@@ -135,6 +136,7 @@ class PoWLendingProtocol(gl.Contract):
         self.state.total_capital_requested = u256(0)
         self.state.total_capital_approved = u256(0)
         self.state.global_risk_index_bps = u256(0)
+        self.state.macro_risk_reasoning = "Awaiting first risk rebalance."
         self.pool_counter = u256(0)
         self.treasury_balance = u256(0)
 
@@ -241,9 +243,11 @@ Return ONLY valid JSON:
             decision = json.loads(result.calldata)
             profile["kyc_status"] = decision.get("kyc_status", "VERIFIED")
             profile["identity_score"] = int(decision.get("identity_score", 8500))
+            profile["kyc_reasoning"] = str(decision.get("reasoning", "Identity successfully verified by AI consensus."))
         except Exception:
             profile["kyc_status"] = "VERIFIED"
             profile["identity_score"] = 8500
+            profile["kyc_reasoning"] = "Fallback identity parsing."
             
         self._save_borrower(borrower, profile)
         return True
@@ -438,6 +442,7 @@ Output a JSON with exactly two fields:
         try:
             data = json.loads(result.calldata)
             self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
+            self.state.macro_risk_reasoning = str(data.get("reasoning", "No reasoning provided."))
         except Exception:
             pass
         return True
@@ -873,6 +878,14 @@ Output a JSON with exactly two fields:
         
         current_vouch = int(prop.vouch_score)
         prop.vouch_score = u256(current_vouch + weighted_quality)
+        
+        summary = decision.get("summary", "Valid vouch.")
+        note = f"[{self._now()}] {voucher[:8]}... : +{weighted_quality} XP - {summary}"
+        if not prop.validator_notes:
+            prop.validator_notes = note
+        else:
+            prop.validator_notes += f" | {note}"
+
         self.proposals[proposal_id] = prop
         return True
 
