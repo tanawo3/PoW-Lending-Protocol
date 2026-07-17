@@ -2,7 +2,6 @@
 
 import json
 import re
-from datetime import datetime, timezone
 from dataclasses import dataclass
 from genlayer import *
 
@@ -950,7 +949,7 @@ Output a JSON with exactly two fields:
         
         voucher_profile = self._get_borrower(voucher)
         voucher_identity_score = int(voucher_profile.get("identity_score", 1000))
-        weighted_quality = int((quality * voucher_identity_score) / 10000)
+        weighted_quality = (quality * voucher_identity_score) // 10000
         
         vouchers = self._loads(prop.vouchers_json, {})
         if voucher in vouchers:
@@ -1230,7 +1229,7 @@ Output a JSON with exactly two fields:
             projected = risk
             
         projected = min(projected, BPS_DENOMINATOR)
-        return str(projected / 100.0)
+        return f"{projected // 100}.{projected % 100:02d}"
 
     @gl.public.view
     def check_pool_solvency(self, pool_id: str) -> str:
