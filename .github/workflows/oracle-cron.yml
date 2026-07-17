@@ -1,0 +1,30 @@
+name: Autonomous Oracle Keeper
+
+on:
+  schedule:
+    # Run every 6 hours (00:00, 06:00, 12:00, 18:00)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual triggering from GitHub Actions UI
+
+jobs:
+  rebalance-macro-risk:
+    name: Trigger GenVM Oracle Rebalance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install JS SDK
+        run: npm ci
+
+      - name: Run Off-chain Keeper
+        env:
+          GENLAYER_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          CONTRACT_ADDRESS: ${{ secrets.CONTRACT_ADDRESS }}
+          GENLAYER_RPC_URL: ${{ secrets.GENLAYER_RPC_URL }}
+        run: node scripts/oracle-keeper.mjs
