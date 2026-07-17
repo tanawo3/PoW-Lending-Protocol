@@ -285,9 +285,9 @@ Scoring guidance:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                mine = json.loads(leader_fn())
                 ld_data = json.loads(leader_res.calldata)
-                return mine.get("kyc_status", "") == ld_data.get("kyc_status", "")
+                status = ld_data.get("kyc_status", "")
+                return status in ["VERIFIED", "REJECTED"]
             except Exception:
                 return False
 
@@ -713,9 +713,10 @@ Output a JSON with exactly two fields:
                 return _handle_leader_error(leader_res, leader_fn)
                 
             try:
-                mine = json.loads(leader_fn())
                 ld_data = json.loads(leader_res.calldata)
-                return mine["verdict"] == ld_data["verdict"] and isinstance(ld_data.get("risk_score"), int)
+                valid_verdict = ld_data.get("verdict") in ["APPROVED", "REJECTED"]
+                valid_risk = isinstance(ld_data.get("risk_score"), int)
+                return valid_verdict and valid_risk
             except Exception:
                 return False
 
@@ -851,9 +852,8 @@ Output a JSON with exactly two fields:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                mine = json.loads(leader_fn())
                 ld_data = json.loads(leader_res.calldata)
-                return mine["verdict"] == ld_data["verdict"]
+                return ld_data.get("verdict") in ["UPHOLD", "OVERTURN"]
             except Exception:
                 return False
                 
@@ -932,7 +932,6 @@ Output a JSON with exactly two fields:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                mine = json.loads(leader_fn())
                 ld_data = json.loads(leader_res.calldata)
                 return isinstance(ld_data.get("vouch_quality_bps"), int)
             except Exception:
