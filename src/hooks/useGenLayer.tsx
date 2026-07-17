@@ -894,7 +894,6 @@ export const useGenLayer = () => {
     acceptConditionalOffer,
     withdrawProtocolFees,
     markDefault,
-    simulateDefault,
     healthCheck,
     exportSnapshot,
     getContractVersion,
