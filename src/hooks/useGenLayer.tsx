@@ -175,6 +175,7 @@ export const useGenLayer = () => {
   const [macroRisk, setMacroRisk] = useState<{global_risk_bps: number, macro_risk_reasoning: string} | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<GenTx[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [stateVersion, setStateVersion] = useState<number>(0);
 
   useEffect(() => {
     if (error) {
@@ -729,6 +730,7 @@ export const useGenLayer = () => {
           await waitTx(hash, client);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          setStateVersion(v => v + 1);
       } catch (e: any) {
           setError("Failed to rebalance macro risk: " + stripErrorPrefix(e.message));
       } finally {
@@ -802,6 +804,7 @@ export const useGenLayer = () => {
           await waitTx(hash, client);
           updateTxStatus(hash, 'success');
           await fetchProposals();
+          setStateVersion(v => v + 1);
       } catch (e: any) {
           setError("Verification failed: " + stripErrorPrefix(e.message));
       } finally {
@@ -1075,6 +1078,7 @@ export const useGenLayer = () => {
     setContractAddress,
     isDeploying,
     createTargetedPool,
-    rebalanceMacroRisk
+    rebalanceMacroRisk,
+    stateVersion
   };
 };

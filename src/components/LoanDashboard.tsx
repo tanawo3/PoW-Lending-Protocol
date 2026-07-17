@@ -32,7 +32,7 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
     if (genLayer.address) {
       genLayer.getBorrowerProfile(genLayer.address).then(setBorrowerProfile);
     }
-  }, [genLayer.address, genLayer.contractAddress, genLayer.proposals]);
+  }, [genLayer.address, genLayer.contractAddress, genLayer.proposals, genLayer.stateVersion]);
   
   const handleSubmitProposal = async (e: React.FormEvent) => {
     e.preventDefault();
