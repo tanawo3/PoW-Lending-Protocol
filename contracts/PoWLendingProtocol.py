@@ -563,7 +563,7 @@ Output a JSON with exactly two fields:
         def fraud_leader_fn() -> dict:
             prompt = _interpret_fraud_prompt(borrower, amount, pow_sub, w_age, w_tx, w_bal)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
-            return {"fraud_score": _parse_ratio_bps(analysis), "reasoning": _clean_summary(analysis)}
+            return {"fraud_score": _parse_score(analysis, "fraud_score"), "reasoning": _clean_summary(analysis)}
             
         def fraud_validator_fn(leader_res: gl.vm.Result) -> bool:
             if not isinstance(leader_res, gl.vm.Return):
