@@ -15,9 +15,12 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
     <div className="w-full flex flex-col gap-16 font-sans pb-24 border-t border-[var(--border-light)] pt-24 mt-24">
       
       <div className="flex items-end justify-between border-b border-[var(--text-main)] pb-4 mb-4">
-        <h3 className="font-display font-bold text-3xl uppercase tracking-tighter text-[var(--text-main)] leading-none flex items-center gap-3">
-          <BarChart2 className="w-8 h-8" /> Prediction Markets
-        </h3>
+        <div>
+          <h3 className="font-display font-bold text-3xl uppercase tracking-tighter text-[var(--text-main)] leading-none flex items-center gap-3">
+            <BarChart2 className="w-8 h-8" /> Prediction Markets
+          </h3>
+          <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Create a prediction market where users can bet on whether a specific loan will default. The outcome is resolved by the protocol admin based on actual loan performance.</p>
+        </div>
         <span className="font-mono text-[10px] text-[var(--text-muted)] tracking-widest uppercase">
           {genLayer.markets.length} Active Markets
         </span>
@@ -29,6 +32,7 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="col-span-full p-12 border border-dashed border-[var(--border-light)] flex flex-col items-center justify-center text-center gap-4 bg-[var(--bg-secondary)]">
               <BarChart2 className="w-8 h-8 text-[var(--border-light)]" />
               <p className="font-mono text-sm text-[var(--text-muted)] uppercase tracking-widest">No prediction markets active.</p>
+              <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">No prediction markets active. Create one to let users speculate on loan outcomes.</p>
             </motion.div>
           ) : (
             genLayer.markets.map((market, idx) => {
@@ -49,6 +53,7 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
                   <div className="mb-6">
                     <span className="font-mono text-xs uppercase tracking-widest text-[var(--text-muted)] block mb-2">{market.market_id}</span>
                     <h4 className="font-display font-bold text-xl leading-tight text-[var(--text-main)]">{market.question}</h4>
+                    <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Phrase your market as a yes/no question (e.g. 'Will LOAN-001 default within 30 days?').</p>
                   </div>
 
                   <div className="flex flex-col gap-4 mb-6">
@@ -79,34 +84,43 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
                         placeholder="Bet Amount (ATTO)" 
                       />
                       <div className="flex gap-4">
-                        <button 
-                          onClick={() => genLayer.placeBet(market.market_id, true, BigInt(betAmounts[market.market_id] || 0))}
-                          disabled={!betAmounts[market.market_id]}
-                          className="flex-1 px-4 py-3 border border-green-500 text-green-500 hover:bg-green-500 hover:text-white flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
-                        >
-                          <TrendingUp className="w-3 h-3" /> Bet Repay
-                        </button>
-                        <button 
-                          onClick={() => genLayer.placeBet(market.market_id, false, BigInt(betAmounts[market.market_id] || 0))}
-                          disabled={!betAmounts[market.market_id]}
-                          className="flex-1 px-4 py-3 border border-red-500 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
-                        >
-                          <TrendingDown className="w-3 h-3" /> Bet Default
-                        </button>
+                        <div className="flex-1 flex flex-col">
+                          <button 
+                            onClick={() => genLayer.placeBet(market.market_id, true, BigInt(betAmounts[market.market_id] || 0))}
+                            disabled={!betAmounts[market.market_id]}
+                            className="w-full px-4 py-3 border border-green-500 text-green-500 hover:bg-green-500 hover:text-white flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
+                          >
+                            <TrendingUp className="w-3 h-3" /> Bet Repay
+                          </button>
+                          <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Bet GEN tokens that the outcome will be YES (e.g. the loan WILL default).</p>
+                        </div>
+                        <div className="flex-1 flex flex-col">
+                          <button 
+                            onClick={() => genLayer.placeBet(market.market_id, false, BigInt(betAmounts[market.market_id] || 0))}
+                            disabled={!betAmounts[market.market_id]}
+                            className="w-full px-4 py-3 border border-red-500 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
+                          >
+                            <TrendingDown className="w-3 h-3" /> Bet Default
+                          </button>
+                          <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Bet GEN tokens that the outcome will be NO (e.g. the loan will NOT default).</p>
+                        </div>
                       </div>
-                      <div className="flex gap-2 mt-2">
-                        <button 
-                          onClick={() => genLayer.resolveMarket(market.market_id, "REPAID")}
-                          className="w-full px-4 py-2 border border-green-500 text-green-500 text-[10px] font-mono uppercase tracking-widest hover:bg-green-500 hover:text-white transition-colors"
-                        >
-                          Resolve (REPAID)
-                        </button>
-                        <button 
-                          onClick={() => genLayer.resolveMarket(market.market_id, "DEFAULTED")}
-                          className="w-full px-4 py-2 border border-red-500 text-red-500 text-[10px] font-mono uppercase tracking-widest hover:bg-red-500 hover:text-white transition-colors"
-                        >
-                          Resolve (DEFAULTED)
-                        </button>
+                      <div className="flex flex-col gap-2 mt-2">
+                        <p className="font-mono text-[10px] text-[var(--text-muted)] mt-1 mb-3 leading-relaxed italic">Admin only. Resolve the market with the actual outcome. Winning bettors receive proportional payouts from the losing pool.</p>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => genLayer.resolveMarket(market.market_id, "REPAID")}
+                            className="w-full px-4 py-2 border border-green-500 text-green-500 text-[10px] font-mono uppercase tracking-widest hover:bg-green-500 hover:text-white transition-colors"
+                          >
+                            Resolve (REPAID)
+                          </button>
+                          <button 
+                            onClick={() => genLayer.resolveMarket(market.market_id, "DEFAULTED")}
+                            className="w-full px-4 py-2 border border-red-500 text-red-500 text-[10px] font-mono uppercase tracking-widest hover:bg-red-500 hover:text-white transition-colors"
+                          >
+                            Resolve (DEFAULTED)
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
