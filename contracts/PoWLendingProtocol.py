@@ -220,12 +220,18 @@ Return ONLY valid JSON:
   "identity_score": 8500
 }}"""
             res = gl.nondet.exec_prompt(prompt, response_format="json")
+            
+            parsed = {}
             if isinstance(res, str):
-                try:
-                    parsed = json.loads(res)
-                    return json.dumps(parsed)
-                except Exception:
-                    pass
+                res = res.strip().replace("```json", "").replace("```", "").strip()
+                try: parsed = json.loads(res)
+                except Exception: pass
+            elif isinstance(res, dict):
+                parsed = res
+                
+            if parsed:
+                return json.dumps(parsed)
+                
             return json.dumps({"kyc_status": "VERIFIED", "identity_score": 8500})
 
         def validator_fn(leader_res: gl.vm.Result) -> bool:
@@ -419,16 +425,21 @@ Output a JSON with exactly two fields:
 - "reasoning": A short string explaining why.
 """
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
+            
+            parsed = {}
             if isinstance(analysis, str):
                 analysis = analysis.strip().replace("```json", "").replace("```", "").strip()
-                try:
-                    parsed = json.loads(analysis)
-                    return json.dumps({
-                        "global_risk_bps": int(parsed.get("global_risk_bps", 5000)),
-                        "reasoning": _clean_summary(parsed.get("reasoning", "Parsed successfully."))
-                    })
-                except Exception:
-                    pass
+                try: parsed = json.loads(analysis)
+                except Exception: pass
+            elif isinstance(analysis, dict):
+                parsed = analysis
+                
+            if parsed:
+                return json.dumps({
+                    "global_risk_bps": int(parsed.get("global_risk_bps", 5000)),
+                    "reasoning": _clean_summary(parsed.get("reasoning", "Parsed successfully."))
+                })
+                
             return json.dumps({"global_risk_bps": 5000, "reasoning": "Parse failure"})
 
         def validator_fn(leader_res: gl.vm.Result) -> bool:
