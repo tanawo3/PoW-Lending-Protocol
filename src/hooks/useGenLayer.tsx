@@ -527,7 +527,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'create_pool',
-              args: [name, target_return_bps, min_credit_score, max_loan_amount_wei, risk_tier, ""]
+              args: [name, target_return_bps, min_credit_score, max_loan_amount_wei, risk_tier]
           });
           addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
