@@ -218,8 +218,7 @@ export const useGenLayer = () => {
   const txTypesRef = useRef<Record<string, string>>({});
 
   const waitTx = async (hash: string) => {
-    const client: any = await getGenLayerClient();
-    const receipt = await client.waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+    const receipt = await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
     const isError = receipt?.status === 'ERROR' || receipt?.status === 0 || receipt?.status === 'ROLLBACK' || receipt?.resultName === 'FAILURE' || receipt?.txExecutionResultName === 'FINISHED_WITH_ERROR' || receipt?.txExecutionResultName === 'ERROR';
     if (isError) {
       console.error("Tx failed receipt:", receipt);
