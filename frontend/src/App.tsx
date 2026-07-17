@@ -11,6 +11,7 @@ import { SplitText } from './components/SplitText';
 import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
 import { FooterCTA } from './components/FooterCTA';
+import WebGLBackground from './components/WebGLBackground';
 
 import { BGMController } from './components/BGMController';
 import { AboutModal } from './components/AboutModal';
@@ -85,6 +86,7 @@ export default function App() {
 
   return (
     <div className="min-h-[100dvh] w-full bg-[var(--bg-primary)] text-[var(--text-main)] font-sans relative selection:bg-black selection:text-white overflow-x-hidden">
+      <WebGLBackground />
       <Toaster 
         position="bottom-right" 
         toastOptions={{ 
