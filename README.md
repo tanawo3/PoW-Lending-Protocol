@@ -27,9 +27,9 @@ This protocol solves the trust problem by using GenLayer's consensus to trustles
 
 ## How to Use
 
-1. **Connect Wallet**: Install a Web3 wallet (e.g., MetaMask) and connect to the GenLayer Testnet/Studionet.
-2. **Deploy Contract**: In the frontend UI, click **"Deploy Contract"** to deploy `PoWLendingProtocol.py` to the network.
-3. **Trigger Macro Risk**: Click "Rebalance Macro Risk" to have the contract fetch real-world data and set the global interest rate.
-4. **Submit a Loan**: Enter an amount and your GitHub repository URL. The contract will evaluate your code and either approve or reject your loan.
-5. **Provide Liquidity / Speculate**: Deposit ATTO into Liquidity Pools or place bets in the Prediction Markets on pending loans.
+2. **Deploy Contract**: Navigate to the `scripts/` directory and use the deployment script to deploy `contracts/PoWLendingProtocol.py` to the network.
+3. **Start Frontend**: Navigate to the `frontend/` directory and run `npm install` and `npm run dev`.
+4. **Trigger Macro Risk**: In the UI, click "Rebalance Macro Risk" to have the contract fetch real-world data and set the global interest rate.
+5. **Submit a Loan**: Enter an amount and your GitHub repository URL. The contract will evaluate your code and either approve or reject your loan.
+6. **Provide Liquidity / Speculate**: Deposit ATTO into Liquidity Pools or place bets in the Prediction Markets on pending loans.
 
