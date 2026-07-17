@@ -416,6 +416,7 @@ Output a JSON with exactly two fields:
 """
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
             if isinstance(analysis, str):
+                analysis = _clean_summary(analysis)
                 try:
                     parsed = json.loads(analysis)
                     return json.dumps({"global_risk_bps": parsed.get("global_risk_bps", 5000), "reasoning": parsed.get("reasoning", "Parsed")})
