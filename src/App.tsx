@@ -16,7 +16,6 @@ import { BGMController } from './components/BGMController';
 import { AboutModal } from './components/AboutModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from '@studio-freight/lenis';
-import { useState } from 'react';
 
 export default function App() {
   const genLayer = useGenLayer();

@@ -222,66 +222,63 @@ export const useGenLayer = () => {
     try {
       receipt = await activeClient.waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
     } catch (e: any) {
-      updateTxStatus(hash, 'failed', e.message);
-      throw e;
+      let detail = "";
+      try {
+        const trace = await activeClient.debugTraceTransaction({ hash, round: 0 });
+        const returnText =
+          trace?.return_data?.startsWith("0x") && trace.return_data.length > 2
+            ? new TextDecoder().decode(
+                new Uint8Array(
+                  trace.return_data
+                    .slice(2)
+                    .match(/.{1,2}/g)
+                    ?.map((byte: string) => parseInt(byte, 16)) ?? []
+                )
+              )
+            : trace?.return_data;
+        detail = [returnText, trace?.stderr].filter(Boolean).join(" ");
+      } catch (traceErr) {
+        console.error("debugTraceTransaction failed:", traceErr);
+      }
+      const finalMsg = detail || e.message || "Transaction rolled back during execution";
+      updateTxStatus(hash, 'failed', finalMsg);
+      throw new Error(finalMsg);
     }
     
-    let transaction;
-    try {
-      transaction = await activeClient.getTransaction({ hash }).catch(() => null);
-    } catch (e) {
-      console.error(e);
-    }
-    
-    const merged = { ...receipt, ...transaction, data: { ...(receipt?.data || {}), ...(transaction?.data || {}) } };
-    
-    const leaderReceipt = merged?.consensus_data?.leader_receipt?.[0] || merged?.data?.consensus_data?.leader_receipt?.[0] || merged?.leader_receipt;
-    const executionResult = leaderReceipt?.execution_result || merged?.txExecutionResultName || merged?.resultName;
+    const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0] || receipt?.data?.consensus_data?.leader_receipt?.[0] || receipt?.leader_receipt;
+    const executionResult = leaderReceipt?.execution_result || receipt?.txExecutionResultName || receipt?.resultName;
     
     const isError = 
-      merged?.status === 'ERROR' || 
-      merged?.status === 0 || 
-      merged?.status === 'ROLLBACK' || 
+      receipt?.status === 'ERROR' || 
+      receipt?.status === 0 || 
+      receipt?.status === 'ROLLBACK' || 
       executionResult === 'ERROR' || 
       executionResult === 'FAILURE' || 
       executionResult === 'FINISHED_WITH_ERROR' ||
       (leaderReceipt && leaderReceipt.execution_result !== 'SUCCESS');
 
     if (isError) {
-      console.error("Tx failed receipt:", merged);
-      
-      let errMsg = "Transaction rolled back during execution";
-      
-      const findError = (obj: any): string | null => {
-          if (!obj) return null;
-          if (typeof obj === 'string' && (obj.includes('[EXPECTED]') || obj.includes('Rollback') || obj.includes('Insufficient'))) return obj;
-          if (Array.isArray(obj)) {
-              for (const item of obj) {
-                  const res = findError(item);
-                  if (res) return res;
-              }
-          } else if (typeof obj === 'object') {
-              for (const key in obj) {
-                  if (key === 'error' || key === 'error_message' || key === 'errorMessage' || key === 'message') {
-                      if (typeof obj[key] === 'string' && obj[key].trim() !== '') return obj[key];
-                  }
-                  const res = findError(obj[key]);
-                  if (res) return res;
-              }
-          }
-          return null;
-      };
-
-      const deepError = findError(merged);
-      if (deepError) {
-          errMsg = deepError;
-      } else if (merged?.data?.error) {
-          errMsg = typeof merged.data.error === 'string' ? merged.data.error : JSON.stringify(merged.data.error);
-      } else {
-          // Fallback: dump the merged object if we can't find the string, so we can see what's actually there
-          errMsg = "Execution Error: " + JSON.stringify(merged).substring(0, 200);
+      console.error("Tx failed receipt:", receipt);
+      let detail = "";
+      try {
+        const trace = await activeClient.debugTraceTransaction({ hash, round: 0 });
+        const returnText =
+          trace?.return_data?.startsWith("0x") && trace.return_data.length > 2
+            ? new TextDecoder().decode(
+                new Uint8Array(
+                  trace.return_data
+                    .slice(2)
+                    .match(/.{1,2}/g)
+                    ?.map((byte: string) => parseInt(byte, 16)) ?? []
+                )
+              )
+            : trace?.return_data;
+        detail = [returnText, trace?.stderr].filter(Boolean).join(" ");
+      } catch (traceErr) {
+        console.error("debugTraceTransaction failed:", traceErr);
       }
       
+      const errMsg = detail || "Transaction rolled back during execution";
       updateTxStatus(hash, 'failed', errMsg);
       throw new Error(errMsg);
     }
