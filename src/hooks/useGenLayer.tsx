@@ -226,20 +226,29 @@ export const useGenLayer = () => {
       throw e;
     }
     
-    const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0] || receipt?.data?.consensus_data?.leader_receipt?.[0] || receipt?.leader_receipt;
-    const executionResult = leaderReceipt?.execution_result || receipt?.txExecutionResultName || receipt?.resultName;
+    let transaction;
+    try {
+      transaction = await activeClient.getTransaction({ hash }).catch(() => null);
+    } catch (e) {
+      console.error(e);
+    }
+    
+    const merged = { ...receipt, ...transaction, data: { ...(receipt?.data || {}), ...(transaction?.data || {}) } };
+    
+    const leaderReceipt = merged?.consensus_data?.leader_receipt?.[0] || merged?.data?.consensus_data?.leader_receipt?.[0] || merged?.leader_receipt;
+    const executionResult = leaderReceipt?.execution_result || merged?.txExecutionResultName || merged?.resultName;
     
     const isError = 
-      receipt?.status === 'ERROR' || 
-      receipt?.status === 0 || 
-      receipt?.status === 'ROLLBACK' || 
+      merged?.status === 'ERROR' || 
+      merged?.status === 0 || 
+      merged?.status === 'ROLLBACK' || 
       executionResult === 'ERROR' || 
       executionResult === 'FAILURE' || 
       executionResult === 'FINISHED_WITH_ERROR' ||
       (leaderReceipt && leaderReceipt.execution_result !== 'SUCCESS');
 
     if (isError) {
-      console.error("Tx failed receipt:", receipt);
+      console.error("Tx failed receipt:", merged);
       
       let errMsg = "Transaction rolled back during execution";
       
@@ -263,11 +272,14 @@ export const useGenLayer = () => {
           return null;
       };
 
-      const deepError = findError(receipt);
+      const deepError = findError(merged);
       if (deepError) {
           errMsg = deepError;
-      } else if (receipt?.data?.error) {
-          errMsg = typeof receipt.data.error === 'string' ? receipt.data.error : JSON.stringify(receipt.data.error);
+      } else if (merged?.data?.error) {
+          errMsg = typeof merged.data.error === 'string' ? merged.data.error : JSON.stringify(merged.data.error);
+      } else {
+          // Fallback: dump the merged object if we can't find the string, so we can see what's actually there
+          errMsg = "Execution Error: " + JSON.stringify(merged).substring(0, 200);
       }
       
       updateTxStatus(hash, 'failed', errMsg);
