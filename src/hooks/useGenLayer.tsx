@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { getGenLayerClient, GLOBAL_CONTRACT_ADDRESS, GenLayerNetwork } from '../utils/networkConfig';
 import contractCode from '../../contracts/PoWLendingProtocol.py?raw';
@@ -215,7 +215,10 @@ export const useGenLayer = () => {
     setIsConnected(false);
   }, []);
 
+  const txTypesRef = useRef<Record<string, string>>({});
+
   const addTx = useCallback((tx: GenTx) => {
+    txTypesRef.current[tx.hash] = tx.type;
     setRecentTransactions(prev => [tx, ...prev]);
     if (tx.status === 'pending') {
       toast.loading(`Transaction Processing: ${tx.type.replace(/_/g, ' ').toUpperCase()}`, { id: tx.hash });
@@ -224,10 +227,12 @@ export const useGenLayer = () => {
 
   const updateTxStatus = useCallback((hash: string, status: 'success' | 'failed', err?: string) => {
     setRecentTransactions(prev => prev.map(t => t.hash === hash ? { ...t, status, error: err } : t));
+    const type = txTypesRef.current[hash] || 'TRANSACTION';
+    const displayType = type.replace(/_/g, ' ').toUpperCase();
     if (status === 'success') {
-      toast.success('Transaction Confirmed!', { id: hash });
+      toast.success(`${displayType} Confirmed!`, { id: hash });
     } else if (status === 'failed') {
-      toast.error(`Transaction Failed: ${err || 'Unknown Error'}`, { id: hash });
+      toast.error(`${displayType} Failed: ${err || 'Unknown Error'}`, { id: hash });
     }
   }, []);
 
