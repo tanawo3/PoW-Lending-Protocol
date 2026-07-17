@@ -1682,11 +1682,12 @@ def _interpret_arbitrator_prompt(pow_sub: str, prior_reasoning: str, dispute_evi
     return f"""You are the Supreme AI Arbitrator for PoW Lending Protocol.
 
 PRIOR EVALUATION:
-- Original Submission: {pow_sub}
 - Original AI Reasoning (Rejected): {prior_reasoning}
 
-UNTRUSTED DISPUTE EVIDENCE:
 <UNTRUSTED_DATA>
+ORIGINAL SUBMISSION: {pow_sub}
+
+UNTRUSTED DISPUTE EVIDENCE:
 {dispute_evidence}
 </UNTRUSTED_DATA>
 
@@ -1705,10 +1706,11 @@ def _interpret_vouch_prompt(voucher: str, pow_sub: str, rationale: str) -> str:
     return f"""You are the Social Vouching Evaluator.
 
 VOUCHER IDENTITY: {voucher}
+
+<UNTRUSTED_DATA>
 ORIGINAL PROPOSAL: {pow_sub}
 
 UNTRUSTED VOUCHING RATIONALE:
-<UNTRUSTED_DATA>
 {rationale}
 </UNTRUSTED_DATA>
 
