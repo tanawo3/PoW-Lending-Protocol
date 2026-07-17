@@ -1295,6 +1295,26 @@ def _calculate_repayment_score(completed: int, late: int, defaults: int) -> int:
     score -= late * 5
     return max(0, score)
 
+def _interpret_fraud_prompt(borrower: str, amount: int, pow_sub: str, w_age: int, w_tx: int, w_bal: int) -> str:
+    return f"""You are a strict fraud detection AI for a DeFi lending protocol.
+
+Analyze this wallet and loan request for potential fraud or sybil behaviour:
+
+<UNTRUSTED_DATA>
+- Wallet: {borrower}
+- Requested Amount: {amount}
+- PoW Submission: {pow_sub}
+- Wallet Age: {w_age} days
+- Total transactions: {w_tx}
+- Average balance: ${w_bal} USD
+</UNTRUSTED_DATA>
+
+Return your analysis strictly in this JSON format:
+{{
+    "fraud_score": <integer from 0 to 10000 where 10000 is critical fraud>,
+    "reasoning": "<short explanation>"
+}}"""
+
 def _calculate_wallet_trust_score(age_days: int, transactions: int, avg_balance: int) -> int:
     age_score = min(40, age_days // 10)
     tx_score = min(30, transactions // 10)
