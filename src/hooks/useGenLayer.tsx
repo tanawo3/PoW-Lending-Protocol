@@ -219,13 +219,26 @@ export const useGenLayer = () => {
 
   const waitTx = async (hash: string, activeClient: any) => {
     const receipt = await activeClient.waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
-    const isError = receipt?.status === 'ERROR' || receipt?.status === 0 || receipt?.status === 'ROLLBACK' || receipt?.resultName === 'FAILURE' || receipt?.txExecutionResultName === 'FINISHED_WITH_ERROR' || receipt?.txExecutionResultName === 'ERROR';
+    
+    const leaderReceipt = receipt?.consensus_data?.leader_receipt?.[0] || receipt?.data?.consensus_data?.leader_receipt?.[0] || receipt?.leader_receipt;
+    const executionResult = leaderReceipt?.execution_result || receipt?.txExecutionResultName || receipt?.resultName;
+    
+    const isError = 
+      receipt?.status === 'ERROR' || 
+      receipt?.status === 0 || 
+      receipt?.status === 'ROLLBACK' || 
+      executionResult === 'ERROR' || 
+      executionResult === 'FAILURE' || 
+      executionResult === 'FINISHED_WITH_ERROR' ||
+      (leaderReceipt && leaderReceipt.execution_result !== 'SUCCESS');
+
     if (isError) {
       console.error("Tx failed receipt:", receipt);
       
-      // Attempt to extract GenVM error from receipt data
       let errMsg = "Transaction rolled back during execution";
-      if (receipt?.data?.error) errMsg = receipt.data.error;
+      if (leaderReceipt && leaderReceipt.error) errMsg = leaderReceipt.error;
+      else if (leaderReceipt && leaderReceipt.error_message) errMsg = leaderReceipt.error_message;
+      else if (receipt?.data?.error) errMsg = receipt.data.error;
       else if (receipt?.error) errMsg = receipt.error;
       else if (receipt?.error_message) errMsg = receipt.error_message;
       
