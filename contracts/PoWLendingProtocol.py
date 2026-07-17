@@ -325,7 +325,7 @@ Return ONLY valid JSON:
         self._save_pool(pool_id, pool)
         self._send_gen(sender, amount)
 
-    @gl.public.read
+    @gl.public.view
     def get_all_pools(self) -> str:
         pools = []
         for pid in self.pool_ids:
@@ -334,7 +334,7 @@ Return ONLY valid JSON:
                 pools.append(pool)
         return json.dumps(pools)
 
-    @gl.public.read
+    @gl.public.view
     def get_all_markets(self) -> str:
         markets_list = []
         for mid in self.market_ids:
@@ -955,7 +955,7 @@ Output a JSON with exactly two fields:
             
         return True
 
-    @gl.public.read
+    @gl.public.view
     def fetch_all_proposals(self) -> str:
         """
         Retrieves all proposals for external React/Next.js frontend consumption.
@@ -984,7 +984,7 @@ Output a JSON with exactly two fields:
             })
         return json.dumps(out)
 
-    @gl.public.read
+    @gl.public.view
     def get_borrower_profile(self, address: str) -> str:
         prof = self._get_borrower(address)
         prof["kyc_status"] = prof.get("kyc_status", "NONE")
@@ -1001,12 +1001,12 @@ Output a JSON with exactly two fields:
     # ENTERPRISE AUDIT & METADATA MODULE
     # -------------------------------------------------------------------------
 
-    @gl.public.read
+    @gl.public.view
     def get_contract_version(self) -> str:
         """Returns the semantic version of the deployed contract."""
         return PROTOCOL_VERSION
 
-    @gl.public.read
+    @gl.public.view
     def get_developer_metadata(self) -> str:
         """Returns metadata about the protocol's architecture and GenVM compliance."""
         meta = {
@@ -1018,7 +1018,7 @@ Output a JSON with exactly two fields:
         }
         return json.dumps(meta)
 
-    @gl.public.read
+    @gl.public.view
     def perform_health_check(self) -> str:
         """Lightweight ping to verify VM responsiveness and metrics."""
         return json.dumps({
@@ -1031,7 +1031,7 @@ Output a JSON with exactly two fields:
             "global_risk_index": int(self.state.global_risk_index_bps)
         })
 
-    @gl.public.read
+    @gl.public.view
     def export_state_snapshot(self, offset: int, limit: int) -> str:
         """
         Exports a paginated snapshot of the state machine for external indexing 
@@ -1058,14 +1058,14 @@ Output a JSON with exactly two fields:
             count += 1
         return json.dumps({"snapshot_window": f"{offset}-{offset+limit}", "data": out})
 
-    @gl.public.read
+    @gl.public.view
     def verify_node_compliance(self, node_id: str) -> bool:
         """Executes rigorous comparative consensus for validation."""
         if len(node_id) < 10: return False
         if "malicious" in node_id.lower(): return False
         return True
         
-    @gl.public.read
+    @gl.public.view
     def simulate_loan_default_probability(self, proposal_id: str) -> str:
         """
         Deterministic mathematical model to project default probability 
