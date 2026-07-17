@@ -250,7 +250,8 @@ export const useGenLayer = () => {
         timestamp: Date.now()
       });
       
-      const receipt = await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+      const receipt = const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
       const deployedAddress = findDeployedAddress(receipt, address);
 
       if (receipt && deployedAddress) {
@@ -356,7 +357,8 @@ export const useGenLayer = () => {
             timestamp: Date.now()
           });
 
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -410,7 +412,8 @@ export const useGenLayer = () => {
             timestamp: Date.now()
           });
 
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -437,7 +440,8 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'repay_loan', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -459,7 +463,8 @@ export const useGenLayer = () => {
               args: [proposal_id, evidence]
           });
           addTx({ hash, type: 'appeal_loan_decision', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -484,7 +489,8 @@ export const useGenLayer = () => {
               args: [proposal_id]
           });
           addTx({ hash, type: 'revoke_proposal', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -508,7 +514,8 @@ export const useGenLayer = () => {
               args: [name, target_return_bps, max_loan_amount_wei]
           });
           addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -534,7 +541,8 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'deposit_liquidity', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -559,7 +567,8 @@ export const useGenLayer = () => {
               args: [documentHash]
           });
           addTx({ hash, type: 'submit_identity_verification', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
       } catch (e: any) {
           setError("Verification failed: " + stripErrorPrefix(e.message));
@@ -583,7 +592,8 @@ export const useGenLayer = () => {
               args: [proposal_id]
           });
           addTx({ hash, type: 'mark_default', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
       } catch (e: any) {
           setError("Failed to mark default: " + stripErrorPrefix(e.message));
@@ -607,7 +617,8 @@ export const useGenLayer = () => {
               args: [proposal_id, zk_proof_hash]
           });
           addTx({ hash, type: 'submit_encrypted_evidence', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -629,7 +640,8 @@ export const useGenLayer = () => {
               args: [proposal_id, plaintext, "salt_123"]
           });
           addTx({ hash, type: 'reveal_agreement', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -653,7 +665,8 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'place_bet', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -675,7 +688,8 @@ export const useGenLayer = () => {
               args: [market_id, outcome_yes]
           });
           addTx({ hash, type: 'resolve_market', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+          if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Transaction reverted: ${receiptObj.status}`);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
