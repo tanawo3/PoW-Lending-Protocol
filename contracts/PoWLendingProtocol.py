@@ -182,13 +182,7 @@ class PoWLendingProtocol(gl.Contract):
         self.pools[pool_id] = json.dumps(data)
 
     def _get_market(self, market_id: str) -> dict:
-        raw = self.markets.get(market_id)
-        if not raw:
-            return {}
-        try:
-            return json.loads(raw)
-        except Exception:
-            return {}
+        return self._loads(self.markets.get(market_id, ""), {})
 
     def _save_market(self, market_id: str, data: dict) -> None:
         self.markets[market_id] = json.dumps(data)
@@ -832,7 +826,6 @@ Output a JSON with exactly two fields:
             if not isinstance(leader_res, gl.vm.Return):
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                mine = leader_fn()
                 ld_data = leader_res.calldata
                 if not isinstance(ld_data, dict): return False
                 return isinstance(ld_data.get("vouch_quality_bps"), int)
@@ -881,10 +874,16 @@ Output a JSON with exactly two fields:
         if gl.message.value < debt:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient repayment. Need {debt}")
             
-        # Refund collateral securely
+        # Refund collateral securely and return excess repayment funds
         collateral_amount = int(prop.collateral)
-        if collateral_amount > 0:
-            _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(collateral_amount))
+        excess = int(gl.message.value) - debt
+        
+        refund_amount = collateral_amount
+        if excess > 0:
+            refund_amount += excess
+            
+        if refund_amount > 0:
+            _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(refund_amount))
             
         # Return principal + interest to the liquidity pool that funded it
         if prop.pool_id:
@@ -1526,6 +1525,13 @@ def _parse_verdict(analysis) -> str:
     v = str(analysis.get("verdict", "REJECTED")).upper()
     return "APPROVED" if v == "APPROVED" else "REJECTED"
 
+def _parse_arbitrator_verdict(analysis) -> str:
+    """Extracts and normalizes the arbitrator's verdict from JSON."""
+    if not isinstance(analysis, dict):
+        return "UPHOLD"
+    v = str(analysis.get("verdict", "UPHOLD")).upper()
+    return "OVERTURN" if v == "OVERTURN" else "UPHOLD"
+
 def _clean_summary(analysis) -> str:
     """Extracts, sanitizes, and bounds the summary text from JSON."""
     if isinstance(analysis, dict):
@@ -1578,7 +1584,4 @@ Return ONLY the following JSON:
   "summary": "<string, rationale>"
 }}"""
 
-def _parse_arbitrator_verdict(analysis) -> str:
-    if not isinstance(analysis, dict): return "UPHOLD"
-    v = str(analysis.get("verdict", "UPHOLD")).upper()
-    return "OVERTURN" if v == "OVERTURN" else "UPHOLD"
+
