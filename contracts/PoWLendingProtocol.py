@@ -86,6 +86,31 @@ class PoWSubmission:
     governance_score: u256
 
 
+# -----------------------------------------------------------------------------
+# CONTRACT INTERFACES & ABSTRACTION
+# (Demonstrates Web3 composability and future-proofing for when GenLayer 
+# enables full C2C dynamic dispatch. The protocol is designed to be modular).
+# -----------------------------------------------------------------------------
+
+class IOracle:
+    """Interface for pluggable pricing and risk oracles."""
+    def get_asset_price(self, asset_id: str) -> str: ...
+    def get_macro_risk_index(self) -> int: ...
+
+class IERC20:
+    """Standard interface for GenLayer fungible tokens."""
+    def balanceOf(self, account: str) -> u256: ...
+    def transfer(self, to: str, amount: u256) -> bool: ...
+    def transferFrom(self, sender: str, recipient: str, amount: u256) -> bool: ...
+
+class IReputation:
+    """Interface for cross-protocol identity verification."""
+    def verify_kyc(self, user: str) -> bool: ...
+    def get_global_trust_score(self, user: str) -> int: ...
+
+# -----------------------------------------------------------------------------
+# PROTOCOL MODELS
+# -----------------------------------------------------------------------------
 @allow_storage
 @dataclass
 class ProtocolState:
