@@ -148,6 +148,19 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
             </button>
           </div>
 
+          {genLayer.macroRisk && (
+              <div className="mb-6 p-4 border border-[var(--border-light)] bg-black/20 font-mono text-sm text-[var(--text-muted)]">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="text-orange-500">GLOBAL RISK INDEX</span>
+                    <span className="text-[var(--text-main)]">{(genLayer.macroRisk.global_risk_bps / 100).toFixed(2)}%</span>
+                </div>
+                <div className="text-xs leading-relaxed border-t border-[var(--border-light)] pt-2">
+                    <span className="text-[var(--text-main)]">AI REASONING: </span>
+                    {genLayer.macroRisk.macro_risk_reasoning}
+                </div>
+              </div>
+          )}
+
           <div className="flex flex-col gap-6">
             <AnimatePresence>
               {genLayer.pools.length === 0 ? (

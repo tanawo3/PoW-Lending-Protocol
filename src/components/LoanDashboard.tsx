@@ -110,9 +110,16 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
             </div>
             <div>
               <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60">Identity Score</span>
-              <div className="font-display font-bold text-4xl text-green-400">{borrowerProfile.identity_score}</div>
+              <div className="font-display font-bold text-4xl text-green-400 mt-2">{borrowerProfile.identity_score}</div>
             </div>
           </div>
+          
+          {borrowerProfile.kyc_status !== 'NONE' && borrowerProfile.kyc_reasoning && (
+             <div className="mt-4 pt-4 border-t border-[var(--bg-primary)]/20">
+               <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--bg-primary)]/60 block mb-2">AI Verification Notes</span>
+               <p className="text-sm italic">{borrowerProfile.kyc_reasoning}</p>
+             </div>
+          )}
           
           {borrowerProfile.kyc_status === 'NONE' && (
             <div className="mt-8 pt-8 border-t border-[var(--bg-primary)]/20 flex flex-col md:flex-row gap-4 items-end">

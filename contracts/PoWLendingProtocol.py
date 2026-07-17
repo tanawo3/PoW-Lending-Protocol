@@ -1233,6 +1233,13 @@ Output a JSON with exactly two fields:
     # INTERNAL METHODS
     # -------------------------------------------------------------------------
     
+    @gl.public.view
+    def get_macro_risk(self) -> str:
+        return json.dumps({
+            "global_risk_bps": int(self.state.global_risk_index_bps),
+            "macro_risk_reasoning": self.state.macro_risk_reasoning
+        })
+
     def _recalculate_global_risk(self):
         """
         Iterates over recent approved proposals to calculate a rolling 

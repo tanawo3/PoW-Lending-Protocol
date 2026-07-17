@@ -172,6 +172,7 @@ export const useGenLayer = () => {
   const [proposals, setProposals] = useState<ProposalState[]>([]);
   const [pools, setPools] = useState<PoolState[]>([]);
   const [markets, setMarkets] = useState<SpeculativeMarket[]>([]);
+  const [macroRisk, setMacroRisk] = useState<{global_risk_bps: number, macro_risk_reasoning: string} | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<GenTx[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -439,6 +440,21 @@ export const useGenLayer = () => {
         if (marketsResult) {
             const parsedMarkets = JSON.parse(marketsResult as string);
             setMarkets(parsedMarkets);
+        }
+        
+        try {
+            const macroRiskResult = await (client as any).readContract({
+                address: contractAddress,
+                functionName: 'get_macro_risk',
+                args: []
+            });
+            if (macroRiskResult) {
+                const parsedMacroRisk = JSON.parse(macroRiskResult as string);
+                setMacroRisk(parsedMacroRisk);
+            }
+        } catch (err) {
+            // Might fail on older contract versions without the getter
+            console.warn("Could not fetch macro risk:", err);
         }
     } catch (e: any) {
         const errorMsg = (e?.message || e?.shortMessage || e?.details || String(e) || '').toLowerCase();
@@ -1012,16 +1028,18 @@ export const useGenLayer = () => {
   };
 
   return {
-    address,
-    isConnected,
-    connect,
-    disconnect,
-    contractAddress,
-    isFetching,
-    proposals,
-    pools,
-    recentTransactions,
-    error,
+      address,
+      isConnected,
+      connect,
+      disconnect,
+      contractAddress,
+      isFetching,
+      proposals,
+      pools,
+      markets,
+      macroRisk,
+      recentTransactions,
+      error,
     deployContract,
     fetchProposals,
     submitProposal,
