@@ -857,7 +857,7 @@ export const useGenLayer = () => {
       }
   };
 
-  const resolveMarket = async (market_id: string) => {
+  const resolveMarket = async (market_id: string, actual_outcome: string) => {
       if (!contractAddress) return;
       setIsEvaluating(true);
       setError(null);
@@ -868,7 +868,7 @@ export const useGenLayer = () => {
               address: contractAddress,
               account: address ? { address } : undefined,
               functionName: 'resolve_market',
-              args: [market_id]
+              args: [market_id, actual_outcome]
           });
           addTx({ hash, type: 'resolve_market', status: 'pending', timestamp: Date.now() });
           await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });

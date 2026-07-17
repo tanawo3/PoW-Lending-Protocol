@@ -413,7 +413,7 @@ Output a JSON with exactly two fields:
             if leader_res.error:
                 return _handle_leader_error(leader_res, leader_fn)
             try:
-                data = json.loads(leader_res.calldata)
+                data = leader_res.calldata
                 risk = int(data.get("global_risk_bps", 5000))
                 return 0 <= risk <= 10000
             except Exception:
@@ -421,7 +421,7 @@ Output a JSON with exactly two fields:
 
         result = gl.vm.run_nondet(leader_fn, validator_fn)
         try:
-            data = json.loads(result.calldata)
+            data = result.calldata
             self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
         except Exception:
             pass

@@ -94,12 +94,20 @@ export const MarketDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer
                           <TrendingDown className="w-3 h-3" /> Bet Default
                         </button>
                       </div>
-                      <button 
-                        onClick={() => genLayer.resolveMarket(market.market_id)}
-                        className="w-full mt-2 px-4 py-2 border border-[var(--text-main)] text-[10px] font-mono uppercase tracking-widest hover:bg-[var(--text-main)] hover:text-[var(--bg-secondary)] transition-colors"
-                      >
-                        Resolve Market
-                      </button>
+                      <div className="flex gap-2 mt-2">
+                        <button 
+                          onClick={() => genLayer.resolveMarket(market.market_id, "REPAID")}
+                          className="w-full px-4 py-2 border border-green-500 text-green-500 text-[10px] font-mono uppercase tracking-widest hover:bg-green-500 hover:text-white transition-colors"
+                        >
+                          Resolve (REPAID)
+                        </button>
+                        <button 
+                          onClick={() => genLayer.resolveMarket(market.market_id, "DEFAULTED")}
+                          className="w-full px-4 py-2 border border-red-500 text-red-500 text-[10px] font-mono uppercase tracking-widest hover:bg-red-500 hover:text-white transition-colors"
+                        >
+                          Resolve (DEFAULTED)
+                        </button>
+                      </div>
                     </div>
                   )}
                 </motion.div>
