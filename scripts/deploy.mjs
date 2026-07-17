@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { createClient, createAccount } from 'genlayer-js';
-import { testnetBradbury } from 'genlayer-js/chains';
+import { simulator } from 'genlayer-js/chains';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import dotenv from 'dotenv';
@@ -16,7 +16,7 @@ async function main() {
   if (!pk) throw new Error("GENLAYER_PRIVATE_KEY is missing from environment");
   
   const account = createAccount(pk.startsWith('0x') ? pk : `0x${pk}`);
-  const client = createClient({ chain: testnetBradbury, account });
+  const client = createClient({ chain: simulator, account });
   const code = readFileSync(path.join(__dirname, '../contracts/PoWLendingProtocol.py'), 'utf-8');
 
   console.log("Deploying PoW Lending Protocol...");

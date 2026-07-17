@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { getGenLayerClient, GLOBAL_CONTRACT_ADDRESS, GenLayerNetwork } from '../utils/networkConfig';
-import contractCode from '../../contracts/PoWLendingProtocol.py?raw';
+import contractCode from '../../../contracts/PoWLendingProtocol.py?raw';
 
 const stripErrorPrefix = (msg: string) => {
   if (!msg) return msg;
@@ -1096,8 +1096,7 @@ export const useGenLayer = () => {
         return null;
     }
   };
-      }
-  };
+
 
   return {
       address,
@@ -1137,7 +1136,6 @@ export const useGenLayer = () => {
     revealAgreement,
     placeBet,
     resolveMarket,
-    markets,
     network,
     setNetwork,
     networkName,

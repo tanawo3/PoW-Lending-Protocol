@@ -11,7 +11,7 @@ import { SplitText } from './components/SplitText';
 import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
 import { FooterCTA } from './components/FooterCTA';
-import WebGLBackground from './components/WebGLBackground';
+import { WebGLBackground } from './components/WebGLBackground';
 import { AIConfigModal } from './components/AIConfigModal';
 
 import { BGMController } from './components/BGMController';
