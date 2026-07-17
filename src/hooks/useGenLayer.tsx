@@ -217,6 +217,25 @@ export const useGenLayer = () => {
 
   const txTypesRef = useRef<Record<string, string>>({});
 
+  const waitTx = async (hash: string) => {
+    const client: any = await getGenLayerClient();
+    const receipt = await client.waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+    const isError = receipt?.status === 'ERROR' || receipt?.status === 0 || receipt?.status === 'ROLLBACK' || receipt?.resultName === 'FAILURE' || receipt?.txExecutionResultName === 'FINISHED_WITH_ERROR' || receipt?.txExecutionResultName === 'ERROR';
+    if (isError) {
+      console.error("Tx failed receipt:", receipt);
+      
+      // Attempt to extract GenVM error from receipt data
+      let errMsg = "Transaction rolled back during execution";
+      if (receipt?.data?.error) errMsg = receipt.data.error;
+      else if (receipt?.error) errMsg = receipt.error;
+      else if (receipt?.error_message) errMsg = receipt.error_message;
+      
+      throw new Error(errMsg);
+    }
+    return receipt;
+  };
+
+
   const addTx = useCallback((tx: GenTx) => {
     txTypesRef.current[tx.hash] = tx.type;
     setRecentTransactions(prev => [tx, ...prev]);
@@ -270,7 +289,7 @@ export const useGenLayer = () => {
         timestamp: Date.now()
       });
       
-      const receipt = await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+      const receipt = await waitTx(hash);
       const deployedAddress = findDeployedAddress(receipt, address);
 
       if (receipt && deployedAddress) {
@@ -375,7 +394,7 @@ export const useGenLayer = () => {
             timestamp: Date.now()
           });
 
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -429,7 +448,7 @@ export const useGenLayer = () => {
             timestamp: Date.now()
           });
 
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -456,7 +475,7 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'repay_loan', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -478,7 +497,7 @@ export const useGenLayer = () => {
               args: [proposal_id, evidence]
           });
           addTx({ hash, type: 'appeal_loan_decision', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -502,7 +521,7 @@ export const useGenLayer = () => {
               args: [proposal_id, rationale]
           });
           addTx({ hash, type: 'ai_vouch', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -526,7 +545,7 @@ export const useGenLayer = () => {
               args: [proposal_id]
           });
           addTx({ hash, type: 'revoke_proposal', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -550,7 +569,7 @@ export const useGenLayer = () => {
               args: [name, BigInt(target_return_bps), BigInt(min_credit_score), BigInt(max_loan_amount_wei), risk_tier]
           });
           addTx({ hash, type: 'create_pool', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -575,7 +594,7 @@ export const useGenLayer = () => {
               args: [name, BigInt(target_return_bps), criteria]
           });
           addTx({ hash, type: 'create_targeted_pool', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -600,7 +619,7 @@ export const useGenLayer = () => {
               args: []
           });
           addTx({ hash, type: 'rebalance_macro_risk', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
       } catch (e: any) {
           setError("Failed to rebalance macro risk: " + stripErrorPrefix(e.message));
@@ -624,7 +643,7 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'deposit_liquidity', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -648,7 +667,7 @@ export const useGenLayer = () => {
               args: [pool_id, amount]
           });
           addTx({ hash, type: 'withdraw_liquidity', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -672,7 +691,7 @@ export const useGenLayer = () => {
               args: [documentHash, selfieHash, proofOfAddressHash]
           });
           addTx({ hash, type: 'submit_identity_verification', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
       } catch (e: any) {
           setError("Verification failed: " + stripErrorPrefix(e.message));
@@ -695,7 +714,7 @@ export const useGenLayer = () => {
               args: [proposalId]
           });
           addTx({ hash, type: 'accept_conditional_offer', proposal_id: proposalId, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -718,7 +737,7 @@ export const useGenLayer = () => {
               args: [amount]
           });
           addTx({ hash, type: 'withdraw_protocol_fees', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
       } catch (e: any) {
           setError("Withdrawal failed: " + stripErrorPrefix(e.message));
@@ -739,7 +758,7 @@ export const useGenLayer = () => {
               args: [proposal_id]
           });
           addTx({ hash, type: 'mark_default', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
       } catch (e: any) {
           setError("Failed to mark default: " + stripErrorPrefix(e.message));
@@ -823,7 +842,7 @@ export const useGenLayer = () => {
               args: [proposal_id, zk_proof_hash]
           });
           addTx({ hash, type: 'submit_encrypted_evidence', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -845,7 +864,7 @@ export const useGenLayer = () => {
               args: [proposal_id, evidence_id, ""]
           });
           addTx({ hash, type: 'reveal_agreement', proposal_id, status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -869,7 +888,7 @@ export const useGenLayer = () => {
               value: amount
           });
           addTx({ hash, type: 'place_bet', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
@@ -891,7 +910,7 @@ export const useGenLayer = () => {
               args: [market_id, actual_outcome]
           });
           addTx({ hash, type: 'resolve_market', status: 'pending', timestamp: Date.now() });
-          await (client as any).waitForTransactionReceipt({ hash, status: 'ACCEPTED' });
+          await waitTx(hash);
           updateTxStatus(hash, 'success');
           await fetchProposals();
       } catch (e: any) {
