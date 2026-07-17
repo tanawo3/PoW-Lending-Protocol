@@ -658,7 +658,8 @@ Output a JSON with exactly two fields:
             """Leader execution environment."""
             github_data = _fetch_github(pow_sub)
             live_price = _fetch_collateral_price()
-            prompt = _interpret_leader_prompt(borrower, amount, collateral, live_price, pow_sub, github_data, w_age, w_tx, w_bal, det_wallet_trust, det_income_score, pool_criteria)
+            real_eth_bal = _fetch_eth_balance(borrower)
+            prompt = _interpret_leader_prompt(borrower, amount, collateral, live_price, pow_sub, github_data, w_age, w_tx, w_bal, det_wallet_trust, det_income_score, real_eth_bal, pool_criteria)
             analysis = gl.nondet.exec_prompt(prompt, response_format="json")
             
             parsed = _parse_json_response(analysis)
@@ -1589,7 +1590,33 @@ Scoring guidance:
 - 0-2999: LOW (Pristine wallet, established developer, genuine effort)
 """
 
-def _interpret_leader_prompt(borrower: str, amount: int, collateral: int, live_price: str, pow_sub: str, github_data: str, w_age: int, w_tx: int, w_bal: int, det_wallet_trust: int, det_income_score: int, pool_criteria: str = "") -> str:
+def _fetch_eth_balance(address: str) -> str:
+    try:
+        payload = json.dumps({
+            "jsonrpc": "2.0",
+            "method": "eth_getBalance",
+            "params": [str(address), "latest"],
+            "id": 1
+        })
+        try:
+            res = gl.nondet.web.post(
+                "https://ethereum-rpc.publicnode.com",
+                headers={"Content-Type": "application/json"},
+                body=payload
+            )
+        except Exception as e:
+            return "UNKNOWN (RPC Network Error)"
+        if res.status >= 400:
+            return f"UNKNOWN (RPC API {res.status})"
+        data = json.loads(res.body.decode('utf-8'))
+        hex_bal = data.get("result", "0x0")
+        wei_bal = int(hex_bal, 16)
+        eth_bal = wei_bal / 10**18
+        return f"{eth_bal:.4f} ETH"
+    except Exception:
+        return "UNKNOWN (RPC Parse Error)"
+
+def _interpret_leader_prompt(borrower: str, amount: int, collateral: int, live_price: str, pow_sub: str, github_data: str, w_age: int, w_tx: int, w_bal: int, det_wallet_trust: int, det_income_score: int, real_eth_balance: str, pool_criteria: str = "") -> str:
     """Generates the isolated underwriting context for the AI Leader."""
     return f"""You are the Lead Underwriter AI for the PoW Lending Protocol.
 
@@ -1598,9 +1625,10 @@ BORROWER IDENTITY & TELEMETRY:
 - Requested Capital: {amount} ATTO
 - Collateral Provided: {collateral} ATTO
 - Live ETH Price (USD): {live_price}
-- Wallet Age: {w_age} days
-- Total Transactions: {w_tx}
-- Average Balance (USD): {w_bal}
+- Self-Reported Wallet Age: {w_age} days
+- Self-Reported Transactions: {w_tx}
+- Self-Reported Avg Balance (USD): {w_bal}
+- Cross-Chain Verified Balance (Ethereum Mainnet): {real_eth_balance}
 
 DETERMINISTIC HEURISTICS (PRE-CALCULATED):
 - Wallet Trust Score: {det_wallet_trust}/100
