@@ -7,7 +7,7 @@ const client = createClient({ chain: localnet, account: Object.assign(() => {}, 
 const code = `
 import genlayer.std as gl
 
-@gl.contract
+@gl.evm.contract_interface
 class DummyContract:
     def __init__(self):
         pass
