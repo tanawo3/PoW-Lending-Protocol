@@ -3,10 +3,14 @@ import genlayer as gl
 import json
 from genlayer import DynArray, TreeMap
 
-class _NativeRecipient(gl.Contract):
-    @gl.public.payable
-    def emit_transfer(self) -> None:
+@gl.evm.contract_interface
+class _NativeRecipient:
+    class View:
         pass
+    class Write:
+        @gl.public.payable
+        def emit_transfer(self) -> None:
+            pass
 
 def allow_storage(value):
     return value
@@ -186,7 +190,7 @@ class PoWLendingProtocol(gl.Contract):
         pool["available_liquidity"] -= amount
         self.pools[pool_id] = json.dumps(pool)
         self.treasury_balance = u256(int(self.treasury_balance) - amount)
-        _NativeRecipient(_sender()).emit_transfer(value=u256(amount))
+        _NativeRecipient(gl.Address(_sender())).emit_transfer(value=u256(amount))
         return True
 
     # 3. SUBMIT PROPOSAL
@@ -227,7 +231,7 @@ class PoWLendingProtocol(gl.Contract):
             else:
                 prop.status = "REJECTED"
                 if int(prop.collateral) > 0:
-                    _NativeRecipient(prop.borrower).emit_transfer(value=prop.collateral)
+                    _NativeRecipient(gl.Address(prop.borrower)).emit_transfer(value=prop.collateral)
                     prop.collateral = u256(0)
             prop.last_updated = self._now()
             self.proposals[proposal_id] = prop
@@ -248,7 +252,7 @@ class PoWLendingProtocol(gl.Contract):
             prop.debt = u256(0)
             prop.status = "REPAID"
             if int(prop.collateral) > 0:
-                _NativeRecipient(prop.borrower).emit_transfer(value=prop.collateral)
+                _NativeRecipient(gl.Address(prop.borrower)).emit_transfer(value=prop.collateral)
                 prop.collateral = u256(0)
         else:
             prop.debt = u256(current_debt - repayment)
@@ -262,7 +266,7 @@ class PoWLendingProtocol(gl.Contract):
         prop = self.proposals[proposal_id]
         if _sender() != prop.borrower: raise gl.vm.UserError("Unauthorized")
         if prop.status == "PENDING" and int(prop.collateral) > 0:
-            _NativeRecipient(prop.borrower).emit_transfer(value=prop.collateral)
+            _NativeRecipient(gl.Address(prop.borrower)).emit_transfer(value=prop.collateral)
             prop.collateral = u256(0)
         prop.status = "REVOKED"
         prop.last_updated = self._now()
