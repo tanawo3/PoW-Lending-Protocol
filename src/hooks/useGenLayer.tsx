@@ -194,9 +194,12 @@ export const useGenLayer = () => {
     else if (network === 'studionet') setNetworkName('Genlayer Studio Network');
     else setNetworkName('Genlayer Localnet');
 
-    setContractAddress(localStorage.getItem('POW_CONTRACT_ADDRESS_V3') || GLOBAL_CONTRACT_ADDRESS);
+    const saved = localStorage.getItem('POW_CONTRACT_FINAL');
+    if (saved) {
+      setContractAddress(saved);
+    }
     setError(null);
-  }, [network, setContractAddress]);
+  }, [network]);
 
   const connect = useCallback(async () => {
     setError(null);
@@ -264,13 +267,13 @@ export const useGenLayer = () => {
         timestamp: Date.now()
       });
       
-      const receipt: any = await (client as any).waitForTransactionReceipt({ hash });
-      if (receipt && receipt.status !== 'ACCEPTED') throw new Error(`Deploy reverted: ${receipt.status}`);
-      const deployedAddress = findDeployedAddress(receipt, address);
+      const receiptObj: any = await (client as any).waitForTransactionReceipt({ hash });
+      if (receiptObj && receiptObj.status !== 'ACCEPTED') throw new Error(`Deploy reverted: ${receiptObj.status}`);
+      const deployedAddress = findDeployedAddress(receiptObj, address);
 
-      if (receipt && deployedAddress) {
+      if (receiptObj && deployedAddress) {
           setContractAddress(deployedAddress);
-          localStorage.setItem('POW_CONTRACT_ADDRESS_V3', deployedAddress);
+          localStorage.setItem('POW_CONTRACT_FINAL', deployedAddress);
           updateTxStatus(hash, 'success');
           addToast("Contract deployed successfully", 'success');
       } else {
