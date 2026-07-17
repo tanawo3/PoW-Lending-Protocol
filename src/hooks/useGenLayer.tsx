@@ -406,68 +406,89 @@ export const useGenLayer = () => {
     setIsFetching(true);
     setError(null);
 
-    try {
-        const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
-        const client = getGenLayerClient(network, address, provider);
+    const MAX_RETRIES = 3;
+    const isTransient = (msg: string) => {
+      const lower = msg.toLowerCase();
+      return lower.includes('slots occupied') || lower.includes('server busy') || lower.includes('retry later') || lower.includes('rate limit') || lower.includes('timeout') || lower.includes('econnrefused');
+    };
 
-        const result = await (client as any).readContract({
-            address: contractAddress,
-            functionName: 'fetch_all_proposals',
-            args: []
-        });
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
 
-        if (result) {
-            const parsed = JSON.parse(result as string);
-            setProposals(parsed);
-        }
-        
-        const poolsResult = await (client as any).readContract({
-            address: contractAddress,
-            functionName: 'get_all_pools',
-            args: []
-        });
-        
-        if (poolsResult) {
-            const parsedPools = JSON.parse(poolsResult as string);
-            setPools(parsedPools);
-        }
-        
-        const marketsResult = await (client as any).readContract({
-            address: contractAddress,
-            functionName: 'get_all_markets',
-            args: []
-        });
-        
-        if (marketsResult) {
-            const parsedMarkets = JSON.parse(marketsResult as string);
-            setMarkets(parsedMarkets);
-        }
-        
-        try {
-            const macroRiskResult = await (client as any).readContract({
-                address: contractAddress,
-                functionName: 'get_macro_risk',
-                args: []
-            });
-            if (macroRiskResult) {
-                const parsedMacroRisk = JSON.parse(macroRiskResult as string);
-                setMacroRisk(parsedMacroRisk);
-            }
-        } catch (err) {
-            // Might fail on older contract versions without the getter
-            console.warn("Could not fetch macro risk:", err);
-        }
-    } catch (e: any) {
-        const errorMsg = (e?.message || e?.shortMessage || e?.details || String(e) || '').toLowerCase();
-        const isNotFound = errorMsg.includes("not found") || errorMsg.includes("resource not found") || errorMsg.includes("404") || errorMsg.includes("no contract") || errorMsg.includes("execution failed") || errorMsg.includes("missing or invalid");
-        if (isNotFound) {
-            setError(`The active contract (${contractAddress}) was not found on ${networkName}.`);
-        } else {
-            setError("Failed to fetch state: " + errorMsg);
-        }
-    } finally {
-        setIsFetching(false);
+          const result = await (client as any).readContract({
+              address: contractAddress,
+              functionName: 'fetch_all_proposals',
+              args: []
+          });
+
+          if (result) {
+              const parsed = JSON.parse(result as string);
+              setProposals(parsed);
+          }
+          
+          const poolsResult = await (client as any).readContract({
+              address: contractAddress,
+              functionName: 'get_all_pools',
+              args: []
+          });
+          
+          if (poolsResult) {
+              const parsedPools = JSON.parse(poolsResult as string);
+              setPools(parsedPools);
+          }
+          
+          const marketsResult = await (client as any).readContract({
+              address: contractAddress,
+              functionName: 'get_all_markets',
+              args: []
+          });
+          
+          if (marketsResult) {
+              const parsedMarkets = JSON.parse(marketsResult as string);
+              setMarkets(parsedMarkets);
+          }
+          
+          try {
+              const macroRiskResult = await (client as any).readContract({
+                  address: contractAddress,
+                  functionName: 'get_macro_risk',
+                  args: []
+              });
+              if (macroRiskResult) {
+                  const parsedMacroRisk = JSON.parse(macroRiskResult as string);
+                  setMacroRisk(parsedMacroRisk);
+              }
+          } catch (err) {
+              // Might fail on older contract versions without the getter
+              console.warn("Could not fetch macro risk:", err);
+          }
+          
+          // Success — break the retry loop
+          setIsFetching(false);
+          return;
+      } catch (e: any) {
+          const errorMsg = (e?.message || e?.shortMessage || e?.details || String(e) || '');
+          
+          if (isTransient(errorMsg) && attempt < MAX_RETRIES - 1) {
+              console.warn(`[GenLayer] Transient error (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${(attempt + 1) * 2}s...`, errorMsg);
+              await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+              continue;
+          }
+          
+          const errorLower = errorMsg.toLowerCase();
+          const isNotFound = errorLower.includes("not found") || errorLower.includes("resource not found") || errorLower.includes("404") || errorLower.includes("no contract") || errorLower.includes("execution failed") || errorLower.includes("missing or invalid");
+          if (isNotFound) {
+              setError(`The active contract (${contractAddress}) was not found on ${networkName}.`);
+          } else if (isTransient(errorMsg)) {
+              setError("GenLayer node is currently busy. Please wait a moment and click 'Sync Network State'.");
+          } else {
+              setError("Failed to fetch state: " + errorLower);
+          }
+      }
     }
+    setIsFetching(false);
   }, [contractAddress, address, network, networkName]);
   
   const submitProposal = async (proposal_id: string, requested_amount: number, pow_submission: string, wallet_age_days: number, total_transactions: number, avg_balance_usd: number, value: bigint, target_pool_id: string = "") => {
