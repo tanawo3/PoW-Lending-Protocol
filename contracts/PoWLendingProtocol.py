@@ -118,7 +118,6 @@ class PoWLendingProtocol(gl.Contract):
     pool_counter: u256
     markets: TreeMap[str, str]
     market_ids: DynArray[str]
-    balances: TreeMap[str, u256]
     borrowers: TreeMap[str, str]
     state: ProtocolState
     owner: str
@@ -137,7 +136,6 @@ class PoWLendingProtocol(gl.Contract):
         self.pool_ids = DynArray()
         self.markets = TreeMap()
         self.market_ids = DynArray()
-        self.balances = TreeMap()
         self.borrowers = TreeMap()
 
         self.state = ProtocolState(
@@ -750,9 +748,6 @@ Output a JSON with exactly two fields:
                 interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
                 prop.debt = u256(loan_amount + interest_amount)
                 
-                current_balance = int(self.balances.get(prop.borrower, u256(0)))
-                self.balances[prop.borrower] = u256(current_balance + loan_amount)
-                
                 if loan_amount > 0:
                     _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
             
@@ -799,9 +794,6 @@ Output a JSON with exactly two fields:
             interest_bps = int(prop.risk_score)
             interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
             prop.debt = u256(loan_amount + interest_amount)
-            
-            current_balance = int(self.balances.get(prop.borrower, u256(0)))
-            self.balances[prop.borrower] = u256(current_balance + loan_amount)
             
             if loan_amount > 0:
                 _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
@@ -884,9 +876,6 @@ Output a JSON with exactly two fields:
                 interest_bps = int(prop.risk_score) if int(prop.risk_score) > 0 else 500
                 interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
                 prop.debt = u256(loan_amount + interest_amount)
-                
-                current_balance = int(self.balances.get(prop.borrower, u256(0)))
-                self.balances[prop.borrower] = u256(current_balance + loan_amount)
                 
                 if loan_amount > 0:
                     _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
