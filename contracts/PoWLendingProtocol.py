@@ -730,10 +730,8 @@ Output a JSON with exactly two fields:
                 interest_bps = int(decision["risk_score"])
                 interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
                 prop.debt = u256(loan_amount + interest_amount)
-                
-                if loan_amount > 0:
-                    _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
             
+        # EFFECT: Save state BEFORE Interaction
         self.proposals[proposal_id] = prop
         
         # Update System Metrics
@@ -746,6 +744,13 @@ Output a JSON with exactly two fields:
             
         # Recalculate global risk index
         self._recalculate_global_risk()
+
+        # INTERACTION: Transfer funds after all state is committed
+        if prop.status == "APPROVED":
+            loan_amount = int(prop.requested_amount)
+            if loan_amount > 0:
+                _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
+
         return True
 
     @gl.public.write
@@ -778,14 +783,17 @@ Output a JSON with exactly two fields:
             interest_amount = (loan_amount * interest_bps) // BPS_DENOMINATOR
             prop.debt = u256(loan_amount + interest_amount)
             
-            if loan_amount > 0:
-                _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
-                
             self.state.total_approved = u256(int(self.state.total_approved) + 1)
             self.state.total_capital_approved = u256(int(self.state.total_capital_approved) + loan_amount)
             
+        # EFFECT: Save state
         self.proposals[proposal_id] = prop
         self._recalculate_global_risk()
+
+        # INTERACTION: Transfer
+        if prop.status == "APPROVED" and loan_amount > 0:
+            _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(loan_amount))
+            
         return True
 
     @gl.public.write
@@ -954,14 +962,14 @@ Output a JSON with exactly two fields:
         if prop.status != "APPROVED":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Loan is not in active state")
         debt = int(prop.debt)
-        if gl.message.value < debt:
-            raise gl.vm.UserError(f"{ERROR_EXPECTED} Insufficient repayment. Need {debt}")
+        if gl.message.value != debt:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Exact repayment required. Need exactly {debt} Wei")
             
-        # Refund collateral securely
-        collateral_amount = int(prop.collateral)
-        if collateral_amount > 0:
-            _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(collateral_amount))
-            
+        # EFFECT: Update state securely BEFORE returning collateral
+        prop.status = "REPAID"
+        prop.debt = u256(0)
+        prop.last_updated = self._now()
+        
         # Return principal + interest to the liquidity pool that funded it
         if prop.pool_id:
             fee = debt // 100 # 1% treasury fee
@@ -973,11 +981,14 @@ Output a JSON with exactly two fields:
                 pool["available_liquidity_wei"] = int(pool.get("available_liquidity_wei", 0)) + pool_return
                 pool["total_deposited_wei"] = int(pool.get("total_deposited_wei", 0)) + (pool_return - int(prop.requested_amount))
                 self._save_pool(prop.pool_id, pool)
-            
-        prop.status = "REPAID"
-        prop.debt = u256(0)
-        prop.last_updated = self._now()
+                
         self.proposals[proposal_id] = prop
+
+        # INTERACTION: Refund collateral securely
+        collateral_amount = int(prop.collateral)
+        if collateral_amount > 0:
+            _NativeRecipient(Address(prop.borrower)).emit_transfer(value=u256(collateral_amount))
+            
         return True
 
     @gl.public.write
