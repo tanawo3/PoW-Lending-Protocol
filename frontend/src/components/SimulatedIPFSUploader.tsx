@@ -16,7 +16,7 @@ export function SimulatedIPFSUploader({ onUploadComplete }: { onUploadComplete: 
         if (prev >= 100) {
           clearInterval(interval);
           // Generate a deterministic CID based on the file content and current time
-          const fakeCid = "Qm" + generateDeterministicHash(fileContent + Date.now().toString());
+          const fakeCid = "Qm" + generateDeterministicHash("" + Date.now().toString());
           const ipfsUrl = `ipfs://${fakeCid}`;
           onUploadComplete(ipfsUrl);
           setIsUploading(false);

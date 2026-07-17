@@ -1144,6 +1144,7 @@ export const useGenLayer = () => {
     isDeploying,
     createTargetedPool,
     rebalanceMacroRisk,
-    stateVersion
+    stateVersion,
+    checkPoolSolvency
   };
 };

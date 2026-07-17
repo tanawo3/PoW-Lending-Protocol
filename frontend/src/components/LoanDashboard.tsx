@@ -7,6 +7,7 @@ import { Send, RefreshCw, CheckCircle, XCircle, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> }> = ({ genLayer }) => {
+  const { address } = genLayer;
   const [proposalId, setProposalId] = useState('');
   const [borrower, setBorrower] = useState('');
   const [requestedAmount, setRequestedAmount] = useState('');
@@ -14,9 +15,9 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [githubContributions, setGithubContributions] = useState('');
   const [daoVotes, setDaoVotes] = useState('');
   // Use deterministic hashes based on user address so they remain stable across renders
-  const [documentHash, setDocumentHash] = useState('doc_' + generateDeterministicHash(account + 'doc'));
-  const [selfieHash, setSelfieHash] = useState('selfie_' + generateDeterministicHash(account + 'selfie'));
-  const [proofOfAddressHash, setProofOfAddressHash] = useState('poa_' + generateDeterministicHash(account + 'poa'));
+  const [documentHash, setDocumentHash] = useState('doc_' + generateDeterministicHash(address + 'doc'));
+  const [selfieHash, setSelfieHash] = useState('selfie_' + generateDeterministicHash(address + 'selfie'));
+  const [proofOfAddressHash, setProofOfAddressHash] = useState('poa_' + generateDeterministicHash(address + 'poa'));
   const [walletAgeDays, setWalletAgeDays] = useState('365');
   const [totalTx, setTotalTx] = useState('50');
   const [avgBalance, setAvgBalance] = useState('1500');

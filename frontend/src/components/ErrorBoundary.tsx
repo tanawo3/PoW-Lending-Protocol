@@ -11,9 +11,10 @@ interface State {
 }
 
 export default class ErrorBoundary extends Component<Props, State> {
+  public state: State = { hasError: false, error: null, errorInfo: null };
+
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error: Error): State {
@@ -22,7 +23,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
-    this.setState({ error, errorInfo });
+    (this as any).setState({ error, errorInfo });
   }
 
   render() {
@@ -50,6 +51,6 @@ export default class ErrorBoundary extends Component<Props, State> {
         </div>
       );
     }
-    return this.props.children;
+    return (this as any).props.children;
   }
 }

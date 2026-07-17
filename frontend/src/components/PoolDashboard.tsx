@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Tooltip } from './Tooltip';
 import { useGenLayer } from '../hooks/useGenLayer';
-import { PlusCircle, DollarSign, Activity, Lock, Unlock, TrendingUp } from 'lucide-react';
+import { PlusCircle, DollarSign, Activity, Lock, Unlock, TrendingUp, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> }> = ({ genLayer }) => {
@@ -15,6 +16,25 @@ export const PoolDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
 
   const [depositAmounts, setDepositAmounts] = useState<{ [id: string]: string }>({});
   const [withdrawAmounts, setWithdrawAmounts] = useState<{ [id: string]: string }>({});
+  const [checkingSolvency, setCheckingSolvency] = useState<Record<string, boolean>>({});
+  const [solvencyData, setSolvencyData] = useState<Record<string, any>>({});
+
+  const handleCheckSolvency = async (pool_id: string) => {
+    try {
+        setCheckingSolvency(prev => ({ ...prev, [pool_id]: true }));
+        const res = await genLayer.checkPoolSolvency?.(pool_id);
+        if (res) {
+            setSolvencyData(prev => ({ ...prev, [pool_id]: res }));
+            toast.success(`Solvency verified for Pool ${pool_id}`);
+        } else {
+            toast.error("Failed to verify solvency.");
+        }
+    } catch (err: any) {
+        toast.error("Error checking solvency.");
+    } finally {
+        setCheckingSolvency(prev => ({ ...prev, [pool_id]: false }));
+    }
+  };
 
   const handleCreatePool = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -395,6 +395,14 @@ Scoring guidance:
         self._send_gen(sender, amount)
 
     @gl.public.view
+    def get_protocol_state(self) -> str:
+        return json.dumps({
+            "is_active": True,
+            "version": PROTOCOL_VERSION,
+            "treasury_balance": int(self.treasury_balance)
+        })
+
+    @gl.public.view
     def get_all_pools(self, offset: int = 0, limit: int = 50) -> str:
         pools = []
         total = len(self.pool_ids)
