@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { generateDeterministicHash } from '../utils/determinism';
 import { UploadCloud, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -14,7 +15,8 @@ export function SimulatedIPFSUploader({ onUploadComplete }: { onUploadComplete: 
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
-          const fakeCid = "Qm" + Array.from({ length: 44 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+          // Generate a deterministic CID based on the file content and current time
+          const fakeCid = "Qm" + generateDeterministicHash(fileContent + Date.now().toString());
           const ipfsUrl = `ipfs://${fakeCid}`;
           onUploadComplete(ipfsUrl);
           setIsUploading(false);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tooltip } from './Tooltip';
 import { useGenLayer, ProposalState } from '../hooks/useGenLayer';
+import { generateDeterministicHash } from '../utils/determinism';
 import { SimulatedIPFSUploader } from './SimulatedIPFSUploader';
 import { Send, RefreshCw, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,9 +13,10 @@ export const LoanDashboard: React.FC<{ genLayer: ReturnType<typeof useGenLayer> 
   const [powSubmission, setPowSubmission] = useState('');
   const [githubContributions, setGithubContributions] = useState('');
   const [daoVotes, setDaoVotes] = useState('');
-  const [documentHash, setDocumentHash] = useState('doc_' + Math.random().toString(36).substring(7));
-  const [selfieHash, setSelfieHash] = useState('selfie_' + Math.random().toString(36).substring(7));
-  const [proofOfAddressHash, setProofOfAddressHash] = useState('poa_' + Math.random().toString(36).substring(7));
+  // Use deterministic hashes based on user address so they remain stable across renders
+  const [documentHash, setDocumentHash] = useState('doc_' + generateDeterministicHash(account + 'doc'));
+  const [selfieHash, setSelfieHash] = useState('selfie_' + generateDeterministicHash(account + 'selfie'));
+  const [proofOfAddressHash, setProofOfAddressHash] = useState('poa_' + generateDeterministicHash(account + 'poa'));
   const [walletAgeDays, setWalletAgeDays] = useState('365');
   const [totalTx, setTotalTx] = useState('50');
   const [avgBalance, setAvgBalance] = useState('1500');
