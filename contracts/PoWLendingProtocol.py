@@ -120,6 +120,7 @@ class PoWLendingProtocol(gl.Contract):
     borrowers: TreeMap[str, str]
     state: ProtocolState
     owner: str
+    treasury_balance: u256
 
     def __init__(self):
         """
