@@ -728,6 +728,18 @@ export const useGenLayer = () => {
       }
   };
 
+  const simulateDefault = async (proposal_id: string) => {
+      if (!contractAddress) return "0.0";
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          return await (client as any).readContract({ address: contractAddress, functionName: 'simulate_loan_default_probability', args: [proposal_id] });
+      } catch (e: any) {
+          console.error(e);
+          return "0.0";
+      }
+  };
+
   const healthCheck = async () => {
       if (!contractAddress) return "Not connected";
       try {
