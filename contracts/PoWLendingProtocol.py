@@ -455,14 +455,18 @@ Output a JSON with exactly two fields:
 
         result = gl.vm.run_nondet(leader_fn, validator_fn)
         if not isinstance(result, gl.vm.Return):
-            raise gl.vm.UserError(f"{ERROR_LLM} Consensus Undetermined")
+            # Debug injection
+            self.state.macro_risk_reasoning = f"Consensus failed! Result: {str(getattr(result, 'message', str(result)))}"
+            return True
+            
         try:
             data = json.loads(result.calldata)
             if isinstance(data, str): data = json.loads(data)
             self.state.global_risk_index_bps = u256(int(data.get("global_risk_bps", 5000)))
             self.state.macro_risk_reasoning = str(data.get("reasoning", "No reasoning provided."))
-        except Exception:
-            pass
+        except Exception as e:
+            self.state.macro_risk_reasoning = f"Parse exception: {str(e)}"
+            
         return True
 
     @gl.public.write.payable
