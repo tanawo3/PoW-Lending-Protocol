@@ -74,7 +74,7 @@ export interface PoolState {
 
 export interface GenTx {
   hash: string;
-  type: 'deploy' | 'submit_proposal' | 'evaluate_proposal' | 'repay_loan' | 'revoke_proposal' | 'appeal_loan_decision' | 'ai_vouch' | 'create_pool' | 'deposit_liquidity' | 'withdraw_liquidity' | 'submit_identity_verification' | 'accept_conditional_offer' | 'withdraw_protocol_fees' | 'submit_encrypted_evidence' | 'reveal_agreement' | 'place_bet' | 'resolve_market';
+  type: 'deploy' | 'submit_proposal' | 'evaluate_proposal' | 'repay_loan' | 'revoke_proposal' | 'appeal_loan_decision' | 'ai_vouch' | 'create_pool' | 'deposit_liquidity' | 'withdraw_liquidity' | 'submit_identity_verification' | 'accept_conditional_offer' | 'withdraw_protocol_fees' | 'submit_encrypted_evidence' | 'reveal_agreement' | 'place_bet' | 'resolve_market' | 'grant_role' | 'revoke_role' | 'mark_default' | 'rebalance_macro_risk';
   proposal_id?: string;
   status: 'pending' | 'success' | 'failed';
   error?: string;
@@ -1098,6 +1098,52 @@ export const useGenLayer = () => {
   };
 
 
+  const grantRole = async (accountAddress: string, role: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({ abi: [],
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'grant_role',
+              args: [accountAddress, role]
+          });
+          addTx({ hash, type: 'grant_role', status: 'pending', timestamp: Date.now() });
+          await waitTx(hash, client);
+          updateTxStatus(hash, 'success');
+      } catch (e: any) {
+          setError("Failed to grant role: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
+  const revokeRole = async (accountAddress: string) => {
+      if (!contractAddress) return;
+      setError(null);
+      setIsEvaluating(true);
+      try {
+          const provider = window.ethereum || (window as any).okxwallet || (window as any).rabby;
+          const client = getGenLayerClient(network, address, provider);
+          const hash = await (client as any).writeContract({ abi: [],
+              address: contractAddress,
+              account: address ? { address } : undefined,
+              functionName: 'revoke_role',
+              args: [accountAddress]
+          });
+          addTx({ hash, type: 'revoke_role', status: 'pending', timestamp: Date.now() });
+          await waitTx(hash, client);
+          updateTxStatus(hash, 'success');
+      } catch (e: any) {
+          setError("Failed to revoke role: " + stripErrorPrefix(e.message));
+      } finally {
+          setIsEvaluating(false);
+      }
+  };
+
   return {
       address,
       isConnected,
@@ -1145,6 +1191,8 @@ export const useGenLayer = () => {
     createTargetedPool,
     rebalanceMacroRisk,
     stateVersion,
-    checkPoolSolvency
+    checkPoolSolvency,
+    grantRole,
+    revokeRole
   };
 };

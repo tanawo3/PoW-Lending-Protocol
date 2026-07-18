@@ -7,6 +7,7 @@ import { InitializationView } from './components/InitializationView';
 import { LoanDashboard } from './components/LoanDashboard';
 import { PoolDashboard } from './components/PoolDashboard';
 import { MarketDashboard } from './components/MarketDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
 import { SplitText } from './components/SplitText';
 import { InfiniteMarquee } from './components/InfiniteMarquee';
 import { StackingCards } from './components/StackingCards';
@@ -246,6 +247,8 @@ export default function App() {
                   <PoolDashboard genLayer={genLayer} />
                   
                   <MarketDashboard genLayer={genLayer} />
+                  
+                  <AdminDashboard genLayer={genLayer} />
                 </div>
 
                 {/* Zomoroda Stacking Cards */}
