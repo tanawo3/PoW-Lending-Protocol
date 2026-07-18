@@ -206,10 +206,13 @@ async function main() {
   const revokeHash = await client.writeContract({ address, abi: [], functionName: 'revoke_proposal', args: [loan4] });
   await waitForConsensus(client, revokeHash);
 
-  console.log("  -> Withdrawing Protocol Fees...");
+  console.log("  -> Withdrawing Protocol Fees & Revoking Roles...");
   // Withdraw 1 unit of fee, assuming some accumulated during PATH A
   const feeHash = await client.writeContract({ address, abi: [], functionName: 'withdraw_protocol_fees', args: [1] });
   await waitForConsensus(client, feeHash);
+  
+  const revokeRoleHash = await client.writeContract({ address, abi: [], functionName: 'revoke_role', args: [account.address] });
+  await waitForConsensus(client, revokeRoleHash);
 
   console.log("✅ PATH D Complete!\n");
 
