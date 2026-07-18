@@ -56,7 +56,7 @@ export async function readWithRetry(client, address, functionName, args = []) {
 }
 
 async function main() {
-  console.log("=== Starting PoW Lending Protocol FULL E2E Test ===\n");
+  console.log("=== Starting PoW Lending Protocol ULTIMATE E2E Test ===\n");
   
   const pk = process.env.GENLAYER_PRIVATE_KEY;
   if (!pk) throw new Error("GENLAYER_PRIVATE_KEY is missing from environment. Please add it to .env");
@@ -164,7 +164,56 @@ async function main() {
   await waitForConsensus(client, ap3);
   console.log("✅ PATH C Complete!\n");
 
-  console.log("=== All Lifecycle E2E Tests Passed Successfully! ===");
+  // ==========================================
+  // PATH D: Peripheral & Advanced Features Lifecycle
+  // ==========================================
+  console.log("[6] PATH D: Peripheral & Advanced Features Lifecycle");
+  
+  console.log("  -> Identity & Roles...");
+  const idHash = await client.writeContract({ address, abi: [], functionName: 'submit_identity_verification', args: ['docHash', 'selfieHash', 'poaHash'] });
+  await waitForConsensus(client, idHash);
+  const roleHash = await client.writeContract({ address, abi: [], functionName: 'grant_role', args: [account.address, 'AUDITOR'] });
+  await waitForConsensus(client, roleHash);
+
+  console.log("  -> Liquidity Management...");
+  const depHash = await client.writeContract({ address, abi: [], functionName: 'deposit_liquidity', args: ['Alpha Fund'], value: 1000n });
+  await waitForConsensus(client, depHash);
+  const withHash = await client.writeContract({ address, abi: [], functionName: 'withdraw_liquidity', args: ['Alpha Fund', 500] });
+  await waitForConsensus(client, withHash);
+  const rebHash = await client.writeContract({ address, abi: [], functionName: 'rebalance_macro_risk', args: [] });
+  await waitForConsensus(client, rebHash);
+
+  console.log("  -> Creating LOAN-4 for Advanced Features...");
+  const loan4 = `LOAN-ADV-${Date.now()}`;
+  const s4 = await client.writeContract({ address, abi: [], functionName: 'submit_proposal', args: [loan4, account.address, 500, 'github.com/tanawo3/PoW', 365, 150, 100, 'Alpha Fund'], value: 1000n });
+  await waitForConsensus(client, s4);
+
+  console.log("  -> Social Vouching & ZK Evidence...");
+  const vouchHash = await client.writeContract({ address, abi: [], functionName: 'ai_vouch', args: [loan4, 'I vouch for this borrower, they are legit.'] });
+  await waitForConsensus(client, vouchHash);
+  const zkHash = await client.writeContract({ address, abi: [], functionName: 'submit_encrypted_evidence', args: [loan4, '0xencryptedPayload123'] });
+  await waitForConsensus(client, zkHash);
+  const revHash = await client.writeContract({ address, abi: [], functionName: 'reveal_agreement', args: [loan4, 'plaintext terms', 'salt123'] });
+  await waitForConsensus(client, revHash);
+
+  console.log("  -> Prediction Markets (Betting)...");
+  const betHash = await client.writeContract({ address, abi: [], functionName: 'place_bet', args: [loan4, 'REPAY'], value: 500n });
+  await waitForConsensus(client, betHash);
+
+  console.log("  -> Resolving Market & Revoking Proposal...");
+  const rmHash = await client.writeContract({ address, abi: [], functionName: 'resolve_market', args: [loan4, 'REPAY'] });
+  await waitForConsensus(client, rmHash);
+  const revokeHash = await client.writeContract({ address, abi: [], functionName: 'revoke_proposal', args: [loan4] });
+  await waitForConsensus(client, revokeHash);
+
+  console.log("  -> Withdrawing Protocol Fees...");
+  // Withdraw 1 unit of fee, assuming some accumulated during PATH A
+  const feeHash = await client.writeContract({ address, abi: [], functionName: 'withdraw_protocol_fees', args: [1] });
+  await waitForConsensus(client, feeHash);
+
+  console.log("✅ PATH D Complete!\n");
+
+  console.log("=== All 20/20 Methods Tested Successfully! ===");
 }
 
 if (process.argv[1] && process.argv[1].endsWith('live-test.mjs')) {
